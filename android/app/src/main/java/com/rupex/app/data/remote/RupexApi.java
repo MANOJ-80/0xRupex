@@ -46,7 +46,7 @@ public interface RupexApi {
     // ============================================
     
     @GET("transactions")
-    Call<ApiResponse<TransactionDto.PaginatedResponse>> getTransactions(
+    Call<PaginatedApiResponse<TransactionDto>> getTransactions(
             @Query("page") int page,
             @Query("limit") int limit,
             @Query("type") String type,
@@ -68,7 +68,7 @@ public interface RupexApi {
     @PUT("transactions/{id}")
     Call<ApiResponse<TransactionDto>> updateTransaction(
             @Path("id") String id,
-            @Body CreateTransactionRequest request
+            @Body UpdateTransactionRequest request
     );
     
     @DELETE("transactions/{id}")

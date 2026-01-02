@@ -141,6 +141,37 @@ public class GroupedTransactionAdapter extends RecyclerView.Adapter<RecyclerView
     public int getItemCount() {
         return items.size();
     }
+    
+    /**
+     * Get item at position (can be DateGroup or PendingTransaction)
+     */
+    public Object getItemAt(int position) {
+        if (position >= 0 && position < items.size()) {
+            return items.get(position);
+        }
+        return null;
+    }
+    
+    /**
+     * Check if item at position is a transaction (not a date header)
+     */
+    public boolean isTransaction(int position) {
+        if (position >= 0 && position < items.size()) {
+            return items.get(position) instanceof PendingTransaction;
+        }
+        return false;
+    }
+    
+    /**
+     * Get transaction at position (returns null if it's a date header)
+     */
+    public PendingTransaction getTransactionAt(int position) {
+        Object item = getItemAt(position);
+        if (item instanceof PendingTransaction) {
+            return (PendingTransaction) item;
+        }
+        return null;
+    }
 
     private String getCategoryColor(String category) {
         if (category == null) return "#607D8B";

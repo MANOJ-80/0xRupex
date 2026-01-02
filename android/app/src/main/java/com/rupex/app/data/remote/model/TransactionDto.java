@@ -40,6 +40,12 @@ public class TransactionDto {
     
     @SerializedName("createdAt")
     private String createdAt;
+    
+    @SerializedName("category_name")
+    private String categoryName;
+    
+    @SerializedName("notes")
+    private String notes;
 
     // Getters
     public String getId() { return id; }
@@ -53,6 +59,8 @@ public class TransactionDto {
     public String getSource() { return source; }
     public String getTransactionAt() { return transactionAt; }
     public String getCreatedAt() { return createdAt; }
+    public String getCategoryName() { return categoryName; }
+    public String getNotes() { return notes; }
 
     /**
      * Paginated response wrapper

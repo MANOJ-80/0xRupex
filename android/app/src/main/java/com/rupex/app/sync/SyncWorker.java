@@ -13,6 +13,7 @@ import com.rupex.app.data.remote.ApiClient;
 import com.rupex.app.data.remote.RupexApi;
 import com.rupex.app.data.remote.model.ApiResponse;
 import com.rupex.app.data.remote.model.CreateTransactionRequest;
+import com.rupex.app.data.remote.model.UpdateTransactionRequest;
 import com.rupex.app.data.remote.model.TransactionDto;
 import com.rupex.app.util.TokenManager;
 
@@ -63,6 +64,12 @@ public class SyncWorker extends Worker {
 
         for (PendingTransaction pending : unsynced) {
             try {
+                // Determine source - default to "sms" if not set
+                String source = pending.getSource();
+                if (source == null || source.isEmpty()) {
+                    source = "sms";
+                }
+                
                 // Build request
                 CreateTransactionRequest request = new CreateTransactionRequest()
                         .setType(pending.getType())
@@ -74,7 +81,7 @@ public class SyncWorker extends Worker {
                         .setSmsHash(pending.getSmsHash())
                         .setCategoryName(pending.getCategory())
                         .setLast4Digits(pending.getLast4Digits())
-                        .setSource("sms");
+                        .setSource(source);
 
                 // Try to match account by last 4 digits
                 if (pending.getLast4Digits() != null) {
@@ -116,9 +123,13 @@ public class SyncWorker extends Worker {
         // Now sync any updated transactions (have server_id but synced = 0)
         syncUpdatedTransactions(db, api);
 
-        // Clean up old synced transactions (older than 7 days)
-        long sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000L);
-        db.pendingTransactionDao().deleteOldSynced(sevenDaysAgo);
+        // Clean up old synced transactions (older than 30 days)
+        // Only delete if created_at is a valid timestamp (> year 2020)
+        long thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000L);
+        long minValidTimestamp = 1577836800000L; // Jan 1, 2020
+        if (thirtyDaysAgo > minValidTimestamp) {
+            db.pendingTransactionDao().deleteOldSynced(thirtyDaysAgo);
+        }
 
         return failCount > 0 ? Result.retry() : Result.success();
     }
@@ -137,9 +148,15 @@ public class SyncWorker extends Worker {
 
         for (PendingTransaction pending : updated) {
             try {
-                CreateTransactionRequest request = new CreateTransactionRequest()
+                // Use UpdateTransactionRequest - only includes non-null, non-empty values
+                UpdateTransactionRequest request = new UpdateTransactionRequest()
                         .setType(pending.getType())
                         .setCategoryName(pending.getCategory());
+                
+                // Include notes if available
+                if (pending.getNote() != null && !pending.getNote().isEmpty()) {
+                    request.setNotes(pending.getNote());
+                }
 
                 Response<ApiResponse<TransactionDto>> response = 
                         api.updateTransaction(pending.getServerId(), request).execute();

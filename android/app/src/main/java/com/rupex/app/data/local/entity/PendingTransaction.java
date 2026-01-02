@@ -73,6 +73,9 @@ public class PendingTransaction {
     
     @ColumnInfo(name = "note")
     private String note;  // User-added note like "Borrowed from Bob"
+    
+    @ColumnInfo(name = "source")
+    private String source;  // "sms" or "notification" - where this transaction came from
 
     // Getters and Setters
     public long getId() { return id; }
@@ -130,4 +133,7 @@ public class PendingTransaction {
     
     public String getNote() { return note; }
     public void setNote(String note) { this.note = note; }
+    
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
 }

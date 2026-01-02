@@ -31,7 +31,7 @@ import com.rupex.app.data.local.entity.Transaction;
         Account.class,
         Category.class
     },
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 public abstract class RupexDatabase extends RoomDatabase {

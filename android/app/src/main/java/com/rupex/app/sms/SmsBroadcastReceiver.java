@@ -106,13 +106,36 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
             pendingTxn.setTransactionAt(timestamp);
             pendingTxn.setCreatedAt(System.currentTimeMillis());
             pendingTxn.setSynced(false);
+            pendingTxn.setSource("sms");  // Mark source as SMS
 
             // Save to local database
             RupexDatabase db = RupexDatabase.getInstance(context);
             
-            // Check for duplicate (by SMS hash)
+            // Check 1: Duplicate by SMS hash (exact same SMS)
             if (db.pendingTransactionDao().existsBySmsHash(pendingTxn.getSmsHash())) {
                 Log.d(TAG, "Duplicate SMS detected, skipping");
+                return;
+            }
+            
+            // Check 2: Cross-source duplicate (notification might have already captured this)
+            // Use 2-minute window since notification usually arrives first
+            long twoMinutesAgo = timestamp - 120000;
+            long twoMinutesAfter = timestamp + 120000;
+            PendingTransaction crossSource = db.pendingTransactionDao()
+                    .findDuplicateByAmountAndTime(parsed.getAmount(), parsed.getType(), 
+                            twoMinutesAgo, twoMinutesAfter);
+            
+            if (crossSource != null) {
+                Log.d(TAG, "Cross-source duplicate detected (notification already captured). Amount: ₹" 
+                        + parsed.getAmount());
+                
+                // SMS usually has better bank info, so update the existing transaction
+                if (parsed.getBankName() != null && !parsed.getBankName().isEmpty()) {
+                    // Update bank name and account info from SMS
+                    db.pendingTransactionDao().updateBankInfo(crossSource.getId(), 
+                            parsed.getBankName(), parsed.getLast4Digits());
+                    Log.d(TAG, "Updated bank info to: " + parsed.getBankName());
+                }
                 return;
             }
 

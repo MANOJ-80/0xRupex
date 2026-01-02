@@ -1,5 +1,9 @@
 package com.rupex.app.ui.fragment;
 
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,13 +14,17 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.snackbar.Snackbar;
 import com.rupex.app.R;
 import com.rupex.app.data.local.entity.PendingTransaction;
 import com.rupex.app.ui.EditTransactionDialog;
@@ -96,6 +104,116 @@ public class TransactionsFragment extends Fragment implements EditTransactionDia
         adapter.setOnTransactionClickListener(this::showEditDialog);
         recyclerTransactions.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerTransactions.setAdapter(adapter);
+        
+        // Setup swipe-to-delete
+        setupSwipeToDelete();
+    }
+    
+    private void setupSwipeToDelete() {
+        ItemTouchHelper.SimpleCallback swipeCallback = new ItemTouchHelper.SimpleCallback(
+                0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            
+            private final ColorDrawable background = new ColorDrawable(Color.parseColor("#F44336"));
+            private Drawable deleteIcon;
+            
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                @NonNull RecyclerView.ViewHolder viewHolder,
+                                @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
+            
+            @Override
+            public int getSwipeDirs(@NonNull RecyclerView recyclerView,
+                                   @NonNull RecyclerView.ViewHolder viewHolder) {
+                // Only allow swipe on transaction items, not date headers
+                int position = viewHolder.getAdapterPosition();
+                if (!adapter.isTransaction(position)) {
+                    return 0; // Disable swipe for date headers
+                }
+                return super.getSwipeDirs(recyclerView, viewHolder);
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                PendingTransaction transaction = adapter.getTransactionAt(position);
+                
+                if (transaction != null) {
+                    showDeleteConfirmation(transaction);
+                    // Re-draw the item (cancel the swipe visual)
+                    adapter.notifyItemChanged(position);
+                }
+            }
+            
+            @Override
+            public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView,
+                                   @NonNull RecyclerView.ViewHolder viewHolder,
+                                   float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                
+                View itemView = viewHolder.itemView;
+                
+                if (deleteIcon == null) {
+                    deleteIcon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_delete);
+                }
+                
+                int iconMargin = (itemView.getHeight() - deleteIcon.getIntrinsicHeight()) / 2;
+                int iconTop = itemView.getTop() + iconMargin;
+                int iconBottom = iconTop + deleteIcon.getIntrinsicHeight();
+                
+                if (dX > 0) { // Swiping right
+                    int iconLeft = itemView.getLeft() + iconMargin;
+                    int iconRight = iconLeft + deleteIcon.getIntrinsicWidth();
+                    deleteIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                    background.setBounds(itemView.getLeft(), itemView.getTop(),
+                            (int) (itemView.getLeft() + dX), itemView.getBottom());
+                } else if (dX < 0) { // Swiping left
+                    int iconRight = itemView.getRight() - iconMargin;
+                    int iconLeft = iconRight - deleteIcon.getIntrinsicWidth();
+                    deleteIcon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                    background.setBounds((int) (itemView.getRight() + dX), itemView.getTop(),
+                            itemView.getRight(), itemView.getBottom());
+                } else {
+                    background.setBounds(0, 0, 0, 0);
+                }
+                
+                background.draw(c);
+                deleteIcon.draw(c);
+                
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+            }
+        };
+        
+        new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerTransactions);
+    }
+    
+    private void showDeleteConfirmation(PendingTransaction transaction) {
+        String merchant = transaction.getMerchant();
+        if (merchant == null || merchant.isEmpty()) {
+            merchant = transaction.getBankName();
+        }
+        
+        String message = String.format(Locale.getDefault(),
+                "Delete transaction of ₹%.2f to %s?", 
+                transaction.getAmount(), merchant);
+        
+        new MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Delete Transaction")
+                .setMessage(message)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    deleteTransaction(transaction);
+                })
+                .show();
+    }
+    
+    private void deleteTransaction(PendingTransaction transaction) {
+        viewModel.deleteTransaction(transaction);
+        
+        // Show undo snackbar
+        Snackbar.make(recyclerTransactions, "Transaction deleted", Snackbar.LENGTH_LONG)
+                .setAction("Dismiss", v -> {})
+                .show();
     }
 
     private void setupNavigation() {

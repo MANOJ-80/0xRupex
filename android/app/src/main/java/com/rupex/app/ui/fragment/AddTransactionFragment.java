@@ -3,6 +3,7 @@ package com.rupex.app.ui.fragment;
 import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,7 +21,6 @@ import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.rupex.app.R;
-import com.rupex.app.data.model.Account;
 import com.rupex.app.data.model.Category;
 import com.rupex.app.ui.MainViewModel;
 
@@ -42,7 +42,6 @@ public class AddTransactionFragment extends Fragment {
     private MaterialButton btnIncome;
     private TextInputEditText etAmount;
     private AutoCompleteTextView actvCategory;
-    private AutoCompleteTextView actvAccount;
     private TextInputEditText etDescription;
     private TextInputEditText etMerchant;
     private TextInputEditText etDate;
@@ -51,9 +50,7 @@ public class AddTransactionFragment extends Fragment {
     
     private Calendar selectedDate;
     private List<Category> categories = new ArrayList<>();
-    private List<Account> accounts = new ArrayList<>();
     private Category selectedCategory;
-    private Account selectedAccount;
     private String transactionType = "expense";
     
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
@@ -75,7 +72,6 @@ public class AddTransactionFragment extends Fragment {
         btnIncome = view.findViewById(R.id.btnIncome);
         etAmount = view.findViewById(R.id.etAmount);
         actvCategory = view.findViewById(R.id.actvCategory);
-        actvAccount = view.findViewById(R.id.actvAccount);
         etDescription = view.findViewById(R.id.etDescription);
         etMerchant = view.findViewById(R.id.etMerchant);
         etDate = view.findViewById(R.id.etDate);
@@ -136,17 +132,8 @@ public class AddTransactionFragment extends Fragment {
             }
         });
 
-        // Observe accounts
-        viewModel.getAccounts().observe(getViewLifecycleOwner(), accountList -> {
-            if (accountList != null) {
-                this.accounts = accountList;
-                updateAccountsDropdown();
-            }
-        });
-
-        // Load data
+        // Load categories
         viewModel.loadCategories();
-        viewModel.loadAccounts();
     }
 
     private void loadCategoriesForType(String type) {
@@ -159,7 +146,7 @@ public class AddTransactionFragment extends Fragment {
         
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
                 requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
+                R.layout.item_dropdown,
                 categoryNames
         );
         actvCategory.setAdapter(adapter);
@@ -171,23 +158,6 @@ public class AddTransactionFragment extends Fragment {
                     break;
                 }
             }
-        });
-    }
-
-    private void updateAccountsDropdown() {
-        List<String> accountNames = new ArrayList<>();
-        for (Account acc : accounts) {
-            accountNames.add(acc.getName() + " (****" + acc.getAccountNumber() + ")");
-        }
-        
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                accountNames
-        );
-        actvAccount.setAdapter(adapter);
-        actvAccount.setOnItemClickListener((parent, view, position, id) -> {
-            selectedAccount = accounts.get(position);
         });
     }
 
@@ -232,10 +202,13 @@ public class AddTransactionFragment extends Fragment {
     }
 
     private void saveTransaction() {
+        Log.d("AddTransaction", "saveTransaction() called!");
         double amount = Double.parseDouble(etAmount.getText().toString().trim());
         String description = etDescription.getText().toString().trim();
         String merchant = etMerchant.getText().toString().trim();
         String notes = etNotes.getText().toString().trim();
+        
+        Log.d("AddTransaction", "Saving: amount=" + amount + ", desc=" + description + ", type=" + transactionType);
 
         viewModel.createTransaction(
                 amount,
@@ -243,7 +216,7 @@ public class AddTransactionFragment extends Fragment {
                 description,
                 merchant,
                 selectedCategory.getId(),
-                selectedAccount != null ? selectedAccount.getId() : null,
+                null,  // No account
                 selectedDate.getTime(),
                 notes
         );
@@ -255,12 +228,10 @@ public class AddTransactionFragment extends Fragment {
     private void clearForm() {
         etAmount.setText("");
         actvCategory.setText("");
-        actvAccount.setText("");
         etDescription.setText("");
         etMerchant.setText("");
         etNotes.setText("");
         selectedCategory = null;
-        selectedAccount = null;
         selectedDate = Calendar.getInstance();
         etDate.setText(dateFormat.format(selectedDate.getTime()));
     }
@@ -269,6 +240,5 @@ public class AddTransactionFragment extends Fragment {
     public void onResume() {
         super.onResume();
         viewModel.loadCategories();
-        viewModel.loadAccounts();
     }
 }

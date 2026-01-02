@@ -39,17 +39,17 @@ public class FinanceRepository {
     /**
      * Get transactions with pagination
      */
-    public LiveData<Resource<TransactionDto.PaginatedResponse>> getTransactions(
+    public LiveData<Resource<List<TransactionDto>>> getTransactions(
             int page, int limit, String type, String startDate, String endDate) {
         
-        MutableLiveData<Resource<TransactionDto.PaginatedResponse>> result = new MutableLiveData<>();
+        MutableLiveData<Resource<List<TransactionDto>>> result = new MutableLiveData<>();
         result.setValue(Resource.loading());
         
         api.getTransactions(page, limit, type, startDate, endDate).enqueue(
-                new Callback<ApiResponse<TransactionDto.PaginatedResponse>>() {
+                new Callback<PaginatedApiResponse<TransactionDto>>() {
                     @Override
-                    public void onResponse(Call<ApiResponse<TransactionDto.PaginatedResponse>> call,
-                                         Response<ApiResponse<TransactionDto.PaginatedResponse>> response) {
+                    public void onResponse(Call<PaginatedApiResponse<TransactionDto>> call,
+                                         Response<PaginatedApiResponse<TransactionDto>> response) {
                         if (response.isSuccessful() && response.body() != null && response.body().success) {
                             result.setValue(Resource.success(response.body().data));
                         } else {
@@ -58,7 +58,7 @@ public class FinanceRepository {
                     }
                     
                     @Override
-                    public void onFailure(Call<ApiResponse<TransactionDto.PaginatedResponse>> call, Throwable t) {
+                    public void onFailure(Call<PaginatedApiResponse<TransactionDto>> call, Throwable t) {
                         Log.e(TAG, "Failed to load transactions", t);
                         result.setValue(Resource.error(t.getMessage()));
                     }

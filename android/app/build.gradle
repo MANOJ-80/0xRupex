@@ -16,7 +16,8 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Backend API URL - change for production
-        buildConfigField "String", "API_BASE_URL", '"http://10.0.2.2:3000/api/v1/"'
+        // Use 10.0.2.2 for emulator, actual IP for physical device
+        buildConfigField "String", "API_BASE_URL", '"http://10.22.45.123:3000/api/v1/"'
     }
 
     buildTypes {

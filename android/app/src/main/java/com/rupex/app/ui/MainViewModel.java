@@ -1,6 +1,7 @@
 package com.rupex.app.ui;
 
 import android.app.Application;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
@@ -18,9 +19,11 @@ import com.rupex.app.data.model.MonthlySummary;
 import com.rupex.app.data.remote.ApiClient;
 import com.rupex.app.data.remote.RupexApi;
 import com.rupex.app.data.remote.model.ApiResponse;
+import com.rupex.app.data.remote.model.PaginatedApiResponse;
 import com.rupex.app.data.remote.model.AccountDto;
 import com.rupex.app.data.remote.model.CategoryDto;
 import com.rupex.app.data.remote.model.CreateTransactionRequest;
+import com.rupex.app.data.remote.model.UpdateTransactionRequest;
 import com.rupex.app.data.remote.model.TransactionDto;
 import com.rupex.app.sync.SyncManager;
 
@@ -117,6 +120,106 @@ public class MainViewModel extends AndroidViewModel {
 
     public void loadTransactions() {
         updateSyncStatus();
+        // Fetch transactions from backend and store locally
+        fetchTransactionsFromBackend();
+    }
+    
+    /**
+     * Fetch transactions from backend API and store in local database
+     */
+    private void fetchTransactionsFromBackend() {
+        api.getTransactions(1, 100, null, null, null).enqueue(new Callback<PaginatedApiResponse<TransactionDto>>() {
+            @Override
+            public void onResponse(Call<PaginatedApiResponse<TransactionDto>> call,
+                                  Response<PaginatedApiResponse<TransactionDto>> response) {
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    List<TransactionDto> serverTransactions = response.body().getData();
+                    if (serverTransactions != null && !serverTransactions.isEmpty()) {
+                        Log.d(TAG, "Fetched " + serverTransactions.size() + " transactions from backend");
+                        storeTransactionsLocally(serverTransactions);
+                    } else {
+                        Log.d(TAG, "No transactions from backend");
+                    }
+                } else {
+                    Log.e(TAG, "Failed to fetch transactions: " + response.code());
+                }
+            }
+            
+            @Override
+            public void onFailure(Call<PaginatedApiResponse<TransactionDto>> call, Throwable t) {
+                Log.e(TAG, "Error fetching transactions: " + t.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * Store fetched transactions in local database (avoiding duplicates)
+     */
+    private void storeTransactionsLocally(List<TransactionDto> serverTransactions) {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            for (TransactionDto dto : serverTransactions) {
+                try {
+                    // Use server ID as hash to prevent duplicates
+                    String hash = "SERVER_" + dto.getId();
+                    
+                    // Check 1: Already exists with this server hash
+                    if (database.pendingTransactionDao().existsBySmsHash(hash)) {
+                        continue; // Skip duplicate
+                    }
+                    
+                    // Check 2: Check if there's a local transaction (manual/sms/notification) 
+                    // that matches this server transaction - update it instead of creating new
+                    long txnTime = parseServerDate(dto.getTransactionAt());
+                    long fiveMinutes = 5 * 60 * 1000;
+                    PendingTransaction existing = database.pendingTransactionDao()
+                            .findDuplicateByAmountAndTime(dto.getAmount(), dto.getType(), 
+                                    txnTime - fiveMinutes, txnTime + fiveMinutes);
+                    
+                    if (existing != null) {
+                        // Update existing local transaction with server info
+                        database.pendingTransactionDao().updateServerInfo(existing.getId(), dto.getId(), hash);
+                        Log.d(TAG, "Updated existing local txn with server ID: " + dto.getId());
+                        continue;
+                    }
+                    
+                    // Create new transaction
+                    PendingTransaction txn = new PendingTransaction();
+                    txn.setAmount(dto.getAmount());
+                    txn.setType(dto.getType());
+                    txn.setMerchant(dto.getMerchant() != null ? dto.getMerchant() : dto.getDescription());
+                    txn.setCategory(dto.getCategoryName());
+                    txn.setNote(dto.getDescription());
+                    txn.setSynced(true); // Already synced since it came from server
+                    txn.setSource(dto.getSource() != null ? dto.getSource() : "synced");
+                    txn.setSmsHash(hash);
+                    txn.setServerId(dto.getId()); // Store server ID for backend delete
+                    
+                    // Parse transaction date
+                    txn.setTransactionAt(txnTime);
+                    txn.setCreatedAt(txnTime);
+                    
+                    database.pendingTransactionDao().insert(txn);
+                    Log.d(TAG, "Stored from backend: " + dto.getMerchant() + " ₹" + dto.getAmount());
+                } catch (Exception e) {
+                    Log.e(TAG, "Error storing transaction: " + e.getMessage());
+                }
+            }
+        });
+    }
+    
+    /**
+     * Parse ISO date string from server
+     */
+    private long parseServerDate(String dateStr) {
+        if (dateStr == null) return System.currentTimeMillis();
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            java.util.Date date = sdf.parse(dateStr);
+            return date != null ? date.getTime() : System.currentTimeMillis();
+        } catch (Exception e) {
+            return System.currentTimeMillis();
+        }
     }
 
     /**
@@ -124,10 +227,60 @@ public class MainViewModel extends AndroidViewModel {
      */
     public void updateTransaction(long transactionId, String category, String type, String note) {
         Executors.newSingleThreadExecutor().execute(() -> {
+            // Update local database
             database.pendingTransactionDao().updateCategory(transactionId, category);
             database.pendingTransactionDao().updateType(transactionId, type);
             if (note != null) {
                 database.pendingTransactionDao().updateNote(transactionId, note);
+            }
+            
+            // Get the transaction to check if it has a server ID
+            PendingTransaction txn = database.pendingTransactionDao().getById(transactionId);
+            if (txn == null) {
+                Log.e(TAG, "Transaction not found for update: " + transactionId);
+                return;
+            }
+            
+            // Check if this transaction exists on the server
+            String serverId = txn.getServerId();
+            if (serverId == null || serverId.isEmpty()) {
+                // Try to extract from smsHash if it starts with SERVER_
+                String smsHash = txn.getSmsHash();
+                if (smsHash != null && smsHash.startsWith("SERVER_")) {
+                    serverId = smsHash.substring(7);
+                }
+            }
+            
+            if (serverId != null && !serverId.isEmpty()) {
+                // Sync update to backend immediately
+                Log.d(TAG, "Syncing update to backend for server ID: " + serverId);
+                
+                // Use UpdateTransactionRequest - only includes non-null, non-empty values
+                UpdateTransactionRequest request = new UpdateTransactionRequest()
+                        .setType(type)
+                        .setCategoryName(category);
+                
+                if (note != null) {
+                    request.setNotes(note);
+                }
+                
+                try {
+                    Response<ApiResponse<TransactionDto>> response = 
+                            api.updateTransaction(serverId, request).execute();
+                    
+                    if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
+                        // Mark as synced
+                        database.pendingTransactionDao().markSynced(transactionId, serverId);
+                        Log.d(TAG, "Backend update successful for transaction: " + serverId);
+                    } else {
+                        String error = response.body() != null ? response.body().getError() : "Unknown error";
+                        Log.e(TAG, "Backend update failed: " + error);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error syncing update to backend", e);
+                }
+            } else {
+                Log.d(TAG, "Transaction has no server ID, will sync on next sync cycle");
             }
         });
     }
@@ -264,14 +417,45 @@ public class MainViewModel extends AndroidViewModel {
                         cats.add(new Category(dto.id, dto.name, dto.type, dto.icon, dto.color));
                     }
                     categories.postValue(cats);
+                } else {
+                    // Use default categories if API fails
+                    categories.postValue(getDefaultCategories());
                 }
             }
             
             @Override
             public void onFailure(Call<ApiResponse<List<CategoryDto>>> call, Throwable t) {
-                categories.postValue(new ArrayList<>());
+                // Use default categories on network failure
+                categories.postValue(getDefaultCategories());
             }
         });
+    }
+    
+    /**
+     * Returns default categories when API is unavailable
+     */
+    private List<Category> getDefaultCategories() {
+        List<Category> defaults = new ArrayList<>();
+        // Expense categories
+        defaults.add(new Category(1, "Food & Dining", "expense", "🍕", "#FF5722"));
+        defaults.add(new Category(2, "Shopping", "expense", "🛍️", "#E91E63"));
+        defaults.add(new Category(3, "Transportation", "expense", "🚗", "#2196F3"));
+        defaults.add(new Category(4, "Bills & Utilities", "expense", "📄", "#FF9800"));
+        defaults.add(new Category(5, "Entertainment", "expense", "🎬", "#9C27B0"));
+        defaults.add(new Category(6, "Health", "expense", "💊", "#00BCD4"));
+        defaults.add(new Category(7, "Education", "expense", "📚", "#3F51B5"));
+        defaults.add(new Category(8, "Groceries", "expense", "🛒", "#4CAF50"));
+        defaults.add(new Category(9, "Personal Care", "expense", "💅", "#F44336"));
+        defaults.add(new Category(10, "Travel", "expense", "✈️", "#009688"));
+        defaults.add(new Category(11, "Other", "expense", "📦", "#607D8B"));
+        // Income categories
+        defaults.add(new Category(12, "Salary", "income", "💰", "#4CAF50"));
+        defaults.add(new Category(13, "Freelance", "income", "💼", "#8BC34A"));
+        defaults.add(new Category(14, "Investment", "income", "📈", "#03A9F4"));
+        defaults.add(new Category(15, "Refund", "income", "↩️", "#00BCD4"));
+        defaults.add(new Category(16, "Gift", "income", "🎁", "#E91E63"));
+        defaults.add(new Category(17, "Other Income", "income", "💵", "#607D8B"));
+        return defaults;
     }
     
     // ==================== ACCOUNTS ====================
@@ -292,15 +476,31 @@ public class MainViewModel extends AndroidViewModel {
                         accs.add(new Account(dto.id, dto.name, dto.bankName, 
                                 dto.accountNumber, dto.accountType, dto.balance));
                     }
+                    if (accs.isEmpty()) {
+                        accs = getDefaultAccounts();
+                    }
                     accounts.postValue(accs);
+                } else {
+                    accounts.postValue(getDefaultAccounts());
                 }
             }
             
             @Override
             public void onFailure(Call<ApiResponse<List<AccountDto>>> call, Throwable t) {
-                accounts.postValue(new ArrayList<>());
+                accounts.postValue(getDefaultAccounts());
             }
         });
+    }
+    
+    /**
+     * Returns default accounts when API is unavailable
+     */
+    private List<Account> getDefaultAccounts() {
+        List<Account> defaults = new ArrayList<>();
+        defaults.add(new Account(1, "Cash", "Cash", "0000", "cash", 0.0));
+        defaults.add(new Account(2, "Bank Account", "Bank", "XXXX", "savings", 0.0));
+        defaults.add(new Account(3, "UPI", "UPI", "XXXX", "upi", 0.0));
+        return defaults;
     }
     
     // ==================== CREATE TRANSACTION ====================
@@ -309,12 +509,42 @@ public class MainViewModel extends AndroidViewModel {
                                   String merchant, int categoryId, Integer accountId,
                                   Date date, String notes) {
         
+        Log.d(TAG, "createTransaction called: amount=" + amount + ", type=" + type + ", desc=" + description);
+        
+        // Save to local database first (so it appears immediately)
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                PendingTransaction txn = new PendingTransaction();
+                txn.setAmount(amount);
+                txn.setType(type);
+                txn.setMerchant(merchant != null && !merchant.isEmpty() ? merchant : description);
+                txn.setCategory(getCategoryNameById(categoryId));
+                txn.setNote(notes);
+                txn.setTransactionAt(date.getTime());
+                txn.setCreatedAt(System.currentTimeMillis());
+                txn.setSynced(false);
+                txn.setSource("manual");
+                // Generate unique hash for manual transaction
+                String hash = "MANUAL_" + System.currentTimeMillis() + "_" + amount + "_" + description.hashCode();
+                txn.setSmsHash(hash);
+                
+                Log.d(TAG, "Inserting transaction: " + txn.getMerchant() + " amount=" + txn.getAmount());
+                database.pendingTransactionDao().insert(txn);
+                Log.d(TAG, "Transaction inserted successfully!");
+            } catch (Exception e) {
+                Log.e(TAG, "Error inserting transaction: " + e.getMessage(), e);
+            }
+        });
+        
+        // Also try to sync to backend
+        // Use categoryName instead of categoryId for backend auto-resolution
+        String categoryName = getCategoryNameById(categoryId);
         CreateTransactionRequest request = new CreateTransactionRequest()
                 .setAmount(amount)
                 .setType(type)
                 .setDescription(description)
                 .setMerchant(merchant)
-                .setCategoryId(String.valueOf(categoryId))
+                .setCategoryName(categoryName)
                 .setAccountId(accountId != null ? String.valueOf(accountId) : null)
                 .setTransactionAt(date.getTime())
                 .setSource("manual");
@@ -323,16 +553,107 @@ public class MainViewModel extends AndroidViewModel {
             @Override
             public void onResponse(Call<ApiResponse<TransactionDto>> call,
                                  Response<ApiResponse<TransactionDto>> response) {
-                if (response.isSuccessful()) {
-                    // Refresh transactions
+                if (response.isSuccessful() && response.body() != null && response.body().getData() != null) {
+                    TransactionDto serverTxn = response.body().getData();
+                    // Update local transaction with server ID to prevent duplicate on next fetch
+                    Executors.newSingleThreadExecutor().execute(() -> {
+                        // Find the local transaction we just created (by amount, merchant, recent time)
+                        long recentTime = System.currentTimeMillis() - 60000; // within last minute
+                        PendingTransaction local = database.pendingTransactionDao()
+                                .findDuplicateByAmountAndTime(amount, type, recentTime, System.currentTimeMillis());
+                        if (local != null) {
+                            // Update with server ID so it won't be re-fetched
+                            String serverHash = "SERVER_" + serverTxn.getId();
+                            database.pendingTransactionDao().updateServerInfo(local.getId(), serverTxn.getId(), serverHash);
+                            Log.d(TAG, "Updated local transaction with server ID: " + serverTxn.getId());
+                        }
+                    });
                     loadMonthlySummary();
                 }
             }
             
             @Override
             public void onFailure(Call<ApiResponse<TransactionDto>> call, Throwable t) {
-                // Handle error
+                // Transaction is already saved locally, will sync later
+                Log.e(TAG, "Backend save failed: " + t.getMessage());
             }
         });
+    }
+    
+    /**
+     * Get category name by ID from default categories
+     */
+    private String getCategoryNameById(int categoryId) {
+        List<Category> cats = categories.getValue();
+        if (cats != null) {
+            for (Category cat : cats) {
+                if (cat.getId() == categoryId) {
+                    return cat.getName();
+                }
+            }
+        }
+        return "Other";
+    }
+    
+    // ==================== DELETE TRANSACTION ====================
+    
+    /**
+     * Delete a transaction from local database and backend
+     */
+    public void deleteTransaction(PendingTransaction transaction) {
+        Log.d(TAG, "deleteTransaction called for ID: " + transaction.getId() + ", merchant: " + transaction.getMerchant());
+        Executors.newSingleThreadExecutor().execute(() -> {
+            // Delete from local database first
+            database.pendingTransactionDao().deleteById(transaction.getId());
+            Log.d(TAG, "Deleted from local DB: " + transaction.getId());
+            
+            // Get server ID from either serverId field or extract from smsHash
+            String serverId = transaction.getServerId();
+            if ((serverId == null || serverId.isEmpty()) && transaction.getSmsHash() != null 
+                    && transaction.getSmsHash().startsWith("SERVER_")) {
+                serverId = transaction.getSmsHash().substring(7); // Remove "SERVER_" prefix
+            }
+            if (serverId != null && !serverId.isEmpty()) {
+                Log.d(TAG, "Deleting from backend with serverId: " + serverId);
+                final String finalServerId = serverId;
+                api.deleteTransaction(serverId).enqueue(new Callback<ApiResponse<Void>>() {
+                    @Override
+                    public void onResponse(Call<ApiResponse<Void>> call,
+                                         Response<ApiResponse<Void>> response) {
+                        if (response.isSuccessful()) {
+                            Log.d(TAG, "Backend delete successful for: " + finalServerId);
+                        } else {
+                            Log.e(TAG, "Backend delete failed: " + response.code());
+                        }
+                    }
+                    
+                    @Override
+                    public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
+                        Log.e(TAG, "Backend delete error: " + t.getMessage());
+                    }
+                });
+            } else {
+                Log.d(TAG, "No server ID, local-only delete");
+            }
+        });
+    }
+    
+    /**
+     * Delete transaction by ID
+     */
+    public void deleteTransactionById(long transactionId) {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            PendingTransaction txn = database.pendingTransactionDao().getById(transactionId);
+            if (txn != null) {
+                deleteTransaction(txn);
+            }
+        });
+    }
+    
+    /**
+     * Get transaction by ID (for undo functionality)
+     */
+    public PendingTransaction getTransactionById(long id) {
+        return database.pendingTransactionDao().getById(id);
     }
 }

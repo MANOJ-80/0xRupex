@@ -1,9 +1,13 @@
 package com.rupex.app.ui.fragment;
 
 import android.Manifest;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,6 +23,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.rupex.app.R;
+import com.rupex.app.notification.PaymentNotificationListener;
 import com.rupex.app.sync.SyncManager;
 import com.rupex.app.ui.LoginActivity;
 import com.rupex.app.ui.MainViewModel;
@@ -38,7 +43,10 @@ public class ProfileFragment extends Fragment {
     private TextView tvAccountCount;
     private TextView tvSmsCount;
     private TextView tvSmsStatus;
+    private TextView tvNotificationStatus;
+    private View notificationStatusDot;
     private LinearLayout optionSmsPermission;
+    private LinearLayout optionNotificationAccess;
     private LinearLayout optionSync;
     private LinearLayout optionLogout;
 
@@ -60,7 +68,10 @@ public class ProfileFragment extends Fragment {
         tvAccountCount = view.findViewById(R.id.tvAccountCount);
         tvSmsCount = view.findViewById(R.id.tvSmsCount);
         tvSmsStatus = view.findViewById(R.id.tvSmsStatus);
+        tvNotificationStatus = view.findViewById(R.id.tvNotificationStatus);
+        notificationStatusDot = view.findViewById(R.id.notificationStatusDot);
         optionSmsPermission = view.findViewById(R.id.optionSmsPermission);
+        optionNotificationAccess = view.findViewById(R.id.optionNotificationAccess);
         optionSync = view.findViewById(R.id.optionSync);
         optionLogout = view.findViewById(R.id.optionLogout);
 
@@ -94,6 +105,16 @@ public class ProfileFragment extends Fragment {
         
         // Update SMS status
         updateSmsStatus();
+
+        // Notification Access for UPI apps
+        optionNotificationAccess.setOnClickListener(v -> {
+            if (isNotificationListenerEnabled()) {
+                Toast.makeText(requireContext(), "UPI notification access already enabled!", Toast.LENGTH_SHORT).show();
+            } else {
+                showNotificationAccessDialog();
+            }
+        });
+        updateNotificationStatus();
 
         // Force sync
         optionSync.setOnClickListener(v -> {
@@ -147,6 +168,58 @@ public class ProfileFragment extends Fragment {
         }
     }
 
+    private boolean isNotificationListenerEnabled() {
+        String pkgName = requireContext().getPackageName();
+        String flat = Settings.Secure.getString(requireContext().getContentResolver(),
+                "enabled_notification_listeners");
+        if (!TextUtils.isEmpty(flat)) {
+            String[] names = flat.split(":");
+            for (String name : names) {
+                ComponentName cn = ComponentName.unflattenFromString(name);
+                if (cn != null && TextUtils.equals(pkgName, cn.getPackageName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void updateNotificationStatus() {
+        boolean enabled = isNotificationListenerEnabled();
+        GradientDrawable dot = new GradientDrawable();
+        dot.setShape(GradientDrawable.OVAL);
+        dot.setSize(24, 24);
+        
+        if (enabled) {
+            tvNotificationStatus.setText("Enabled - GPay, PhonePe, Paytm");
+            tvNotificationStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.income));
+            dot.setColor(ContextCompat.getColor(requireContext(), R.color.income));
+        } else {
+            tvNotificationStatus.setText("Disabled - Tap to enable");
+            tvNotificationStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary));
+            dot.setColor(ContextCompat.getColor(requireContext(), R.color.expense));
+        }
+        notificationStatusDot.setBackground(dot);
+    }
+
+    private void showNotificationAccessDialog() {
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Enable UPI Notifications")
+                .setMessage("This allows 0xRupex to automatically capture transactions from:\n\n" +
+                        "• Google Pay\n" +
+                        "• PhonePe\n" +
+                        "• Paytm\n" +
+                        "• Amazon Pay\n" +
+                        "• BHIM\n\n" +
+                        "You'll be taken to Settings. Find and enable \"0xRupex\" in the list.")
+                .setPositiveButton("Open Settings", (dialog, which) -> {
+                    Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+                    startActivity(intent);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
     private void showLogoutConfirmation() {
         new AlertDialog.Builder(requireContext())
                 .setTitle("Logout")
@@ -170,6 +243,7 @@ public class ProfileFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateSmsStatus();
+        updateNotificationStatus();
         viewModel.loadTransactions();
         viewModel.loadAccounts();
     }

@@ -42,6 +42,9 @@ public class CreateTransactionRequest {
     
     @SerializedName("last4Digits")
     private String last4Digits;   // For account matching
+    
+    @SerializedName("notes")
+    private String notes;  // User notes for the transaction
 
     public CreateTransactionRequest() {
         this.source = "sms";
@@ -106,6 +109,11 @@ public class CreateTransactionRequest {
     
     public CreateTransactionRequest setLast4Digits(String last4Digits) {
         this.last4Digits = last4Digits;
+        return this;
+    }
+    
+    public CreateTransactionRequest setNotes(String notes) {
+        this.notes = notes;
         return this;
     }
 }
