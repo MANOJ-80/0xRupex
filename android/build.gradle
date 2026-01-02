@@ -1,0 +1,8 @@
+// Top-level build file for 0xRupex Android App
+plugins {
+    id 'com.android.application' version '8.2.0' apply false
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

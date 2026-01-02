@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:background="?attr/selectableItemBackground">
+
+    <!-- Category Tag -->
+    <TextView
+        android:id="@+id/tvCategoryTag"
+        android:layout_width="80dp"
+        android:layout_height="wrap_content"
+        android:text="Food"
+        android:textSize="11sp"
+        android:textColor="@android:color/white"
+        android:gravity="center"
+        android:paddingHorizontal="8dp"
+        android:paddingVertical="5dp"
+        android:background="@drawable/bg_category_tag"
+        android:ellipsize="end"
+        android:maxLines="1"
+        tools:text="Social Life" />
+
+    <!-- Merchant, Time & Note Info -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvMerchant"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Merchant Name"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:ellipsize="end"
+            android:maxLines="1"
+            tools:text="WAAFIQ RAAKIN A..." />
+
+        <TextView
+            android:id="@+id/tvTimeDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="10:30 AM"
+            android:textSize="11sp"
+            android:textColor="@color/text_tertiary"
+            android:layout_marginTop="2dp"
+            tools:text="10:30 AM" />
+
+        <TextView
+            android:id="@+id/tvNote"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:visibility="gone"
+            tools:text="Borrowed from Bob" />
+
+    </LinearLayout>
+
+    <!-- Single Amount Column -->
+    <TextView
+        android:id="@+id/tvAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="₹ 1055.00"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:gravity="end"
+        tools:text="₹ 1055.00" />
+
+</LinearLayout>

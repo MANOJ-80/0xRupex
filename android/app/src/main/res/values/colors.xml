@@ -1,0 +1,27 @@
+<resources>
+    <color name="primary">#6366F1</color>
+    <color name="primary_dark">#4F46E5</color>
+    <color name="primary_light">#A5B4FC</color>
+    <color name="primary_transparent">#336366F1</color>
+    <color name="accent">#8B5CF6</color>
+    
+    <color name="background">#0F0F0F</color>
+    <color name="surface">#1A1A1A</color>
+    <color name="surface_elevated">#262626</color>
+    <color name="surface_variant">#1E1E1E</color>
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#A3A3A3</color>
+    <color name="text_tertiary">#737373</color>
+    
+    <color name="income">#10B981</color>
+    <color name="expense">#EF4444</color>
+    <color name="transfer">#3B82F6</color>
+    
+    <color name="success">#22C55E</color>
+    <color name="warning">#F59E0B</color>
+    <color name="error">#EF4444</color>
+    
+    <color name="divider">#2E2E2E</color>
+    <color name="ripple">#33FFFFFF</color>
+</resources>
