@@ -1,6 +1,8 @@
 package com.rupex.app.ui;
 
+import android.app.DatePickerDialog;
 import android.app.Dialog;
+import android.app.TimePickerDialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -24,6 +26,7 @@ import com.rupex.app.data.local.entity.PendingTransaction;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -34,7 +37,7 @@ import java.util.Locale;
 public class EditTransactionDialog extends DialogFragment {
 
     public interface OnTransactionEditedListener {
-        void onTransactionEdited(long transactionId, String newCategory, String newType, String note);
+        void onTransactionEdited(long transactionId, String newCategory, String newType, String note, Double amount, String merchant, Long transactionAt);
     }
 
     private static final String ARG_TRANSACTION_ID = "transaction_id";
@@ -54,6 +57,12 @@ public class EditTransactionDialog extends DialogFragment {
     private String selectedType;
     private long transactionId;
     private EditText etNote;
+    private EditText etMerchant;
+    private EditText etAmount;
+    private TextView tvDateTime;
+    private double originalAmount;
+    private Calendar selectedDateTime;
+    private long originalDateTime;
 
     // Pre-defined categories with icons
     private static final CategoryItem[] CATEGORIES = {
@@ -131,9 +140,9 @@ public class EditTransactionDialog extends DialogFragment {
 
         // Setup views
         TextView tvTitle = view.findViewById(R.id.tvDialogTitle);
-        TextView tvMerchant = view.findViewById(R.id.tvMerchant);
-        TextView tvAmount = view.findViewById(R.id.tvAmount);
-        TextView tvDateTime = view.findViewById(R.id.tvDateTime);
+        etMerchant = view.findViewById(R.id.etMerchant);
+        etAmount = view.findViewById(R.id.etAmount);
+        tvDateTime = view.findViewById(R.id.tvDateTime);
         etNote = view.findViewById(R.id.etNote);
         RadioGroup rgType = view.findViewById(R.id.rgTransactionType);
         RadioButton rbExpense = view.findViewById(R.id.rbExpense);
@@ -142,11 +151,20 @@ public class EditTransactionDialog extends DialogFragment {
         MaterialButton btnCancel = view.findViewById(R.id.btnCancel);
         MaterialButton btnSave = view.findViewById(R.id.btnSave);
 
+        // Initialize date/time
+        originalDateTime = transactionDate;
+        selectedDateTime = Calendar.getInstance();
+        selectedDateTime.setTimeInMillis(transactionDate);
+
         // Set current values
         tvTitle.setText("Edit Transaction");
-        tvMerchant.setText(merchant != null ? merchant : "Unknown");
-        tvAmount.setText(String.format("₹%.2f", amount));
-        tvDateTime.setText(DATE_FORMAT.format(new Date(transactionDate)));
+        etMerchant.setText(merchant != null ? merchant : "");
+        etAmount.setText(String.format(Locale.US, "%.2f", amount));
+        originalAmount = amount;
+        updateDateTimeDisplay();
+        
+        // Make date/time clickable
+        tvDateTime.setOnClickListener(v -> showDatePicker());
         
         // Set current note
         if (currentNote != null && !currentNote.isEmpty()) {
@@ -181,10 +199,60 @@ public class EditTransactionDialog extends DialogFragment {
         btnSave.setOnClickListener(v -> {
             if (listener != null) {
                 String note = etNote.getText().toString().trim();
-                listener.onTransactionEdited(transactionId, selectedCategory, selectedType, note);
+                String newMerchant = etMerchant.getText().toString().trim();
+                Double newAmount = null;
+                try {
+                    double parsedAmount = Double.parseDouble(etAmount.getText().toString().trim());
+                    if (Math.abs(parsedAmount - originalAmount) > 0.001) {
+                        newAmount = parsedAmount;
+                    }
+                } catch (NumberFormatException e) {
+                    // Keep original amount if parsing fails
+                }
+                // Check if date/time changed
+                Long newTransactionAt = null;
+                if (selectedDateTime.getTimeInMillis() != originalDateTime) {
+                    newTransactionAt = selectedDateTime.getTimeInMillis();
+                }
+                listener.onTransactionEdited(transactionId, selectedCategory, selectedType, note, newAmount, newMerchant, newTransactionAt);
             }
             dismiss();
         });
+    }
+    
+    private void updateDateTimeDisplay() {
+        tvDateTime.setText(DATE_FORMAT.format(selectedDateTime.getTime()) + " ✏️");
+    }
+    
+    private void showDatePicker() {
+        DatePickerDialog datePickerDialog = new DatePickerDialog(
+                requireContext(),
+                (view, year, month, dayOfMonth) -> {
+                    selectedDateTime.set(Calendar.YEAR, year);
+                    selectedDateTime.set(Calendar.MONTH, month);
+                    selectedDateTime.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                    showTimePicker();
+                },
+                selectedDateTime.get(Calendar.YEAR),
+                selectedDateTime.get(Calendar.MONTH),
+                selectedDateTime.get(Calendar.DAY_OF_MONTH)
+        );
+        datePickerDialog.show();
+    }
+    
+    private void showTimePicker() {
+        TimePickerDialog timePickerDialog = new TimePickerDialog(
+                requireContext(),
+                (view, hourOfDay, minute) -> {
+                    selectedDateTime.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                    selectedDateTime.set(Calendar.MINUTE, minute);
+                    updateDateTimeDisplay();
+                },
+                selectedDateTime.get(Calendar.HOUR_OF_DAY),
+                selectedDateTime.get(Calendar.MINUTE),
+                false
+        );
+        timePickerDialog.show();
     }
 
     @Override

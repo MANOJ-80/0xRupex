@@ -7,9 +7,9 @@ module.exports = {
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 5432,
-    name: process.env.DB_NAME || 'rupex',
+    name: process.env.DB_NAME || 'rupex_db',
     user: process.env.DB_USER || 'rupex',
-    password: process.env.DB_PASSWORD || 'rupex123',
+    password: process.env.DB_PASSWORD || 'rupex_secret',
   },
 
   jwt: {
@@ -28,4 +28,7 @@ module.exports = {
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests per windowMs
   },
+
+  // CORS origins - allow all origins for mobile app
+  corsOrigins: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
 };

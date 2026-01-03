@@ -264,7 +264,7 @@ class TransactionService {
         amount: data.amount ?? transaction.amount,
         description: data.description ?? transaction.description,
         merchant: data.merchant ?? transaction.merchant,
-        transaction_at: data.transaction_at ?? data.transaction_date ?? transaction.transaction_at,
+        transaction_at: data.transactionAt ?? data.transaction_at ?? data.transaction_date ?? transaction.transaction_at,
         notes: data.notes ?? transaction.notes,
         tags: data.tags ?? transaction.tags,
         is_recurring: data.is_recurring ?? transaction.is_recurring,

@@ -66,6 +66,10 @@ public class LoginActivity extends AppCompatActivity {
             isLoginMode = !isLoginMode;
             updateUI();
         });
+        
+        binding.textChangeServer.setOnClickListener(v -> {
+            startActivity(new Intent(this, ServerSetupActivity.class));
+        });
     }
 
     private void updateUI() {

@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.rupex.app.BuildConfig;
+import com.rupex.app.util.ServerUrlManager;
 import com.rupex.app.util.TokenManager;
 
 import java.io.IOException;
@@ -91,13 +92,27 @@ public class ApiClient {
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
 
+        String baseUrl = ServerUrlManager.getInstance(context).getBaseUrl();
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            // Fallback to BuildConfig if available, otherwise use a placeholder
+            // This case should be handled by the UI redirecting to ServerSetupActivity
+            baseUrl = BuildConfig.API_BASE_URL;
+        }
+
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BuildConfig.API_BASE_URL)
+                .baseUrl(baseUrl)
                 .client(client)
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         this.api = retrofit.create(RupexApi.class);
+    }
+
+    /**
+     * Reset the singleton instance (e.g. when server URL changes)
+     */
+    public static void resetInstance() {
+        INSTANCE = null;
     }
 
     /**

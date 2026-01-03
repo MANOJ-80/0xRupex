@@ -60,6 +60,13 @@ public class MainActivity extends AppCompatActivity {
 
         tokenManager = TokenManager.getInstance(this);
         
+        // Check if server URL is set
+        if (!com.rupex.app.util.ServerUrlManager.getInstance(this).isUrlSet()) {
+            startActivity(new Intent(this, ServerSetupActivity.class));
+            finish();
+            return;
+        }
+        
         // Check if logged in
         if (!tokenManager.isLoggedIn()) {
             startActivity(new Intent(this, LoginActivity.class));

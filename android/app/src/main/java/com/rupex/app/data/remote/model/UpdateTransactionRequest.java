@@ -72,4 +72,17 @@ public class UpdateTransactionRequest extends HashMap<String, Object> {
         }
         return this;
     }
+    
+    /**
+     * Set transaction date/time (as ISO 8601 string for backend)
+     */
+    public UpdateTransactionRequest setTransactionAt(long timestamp) {
+        if (timestamp > 0) {
+            // Convert to ISO 8601 format for backend
+            java.text.SimpleDateFormat isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+            isoFormat.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            put("transactionAt", isoFormat.format(new java.util.Date(timestamp)));
+        }
+        return this;
+    }
 }

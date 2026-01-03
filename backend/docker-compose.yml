@@ -1,4 +1,26 @@
+version: '3.8'
+
 services:
+  api:
+    build: .
+    container_name: rupex-api
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=rupex
+      - DB_PASSWORD=rupex_secret
+      - DB_NAME=rupex_db
+      - JWT_SECRET=${JWT_SECRET:-default_secret_please_change}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-default_refresh_secret_please_change}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: rupex-postgres

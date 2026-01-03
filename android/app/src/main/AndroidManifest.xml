@@ -47,6 +47,12 @@
             android:exported="false"
             android:theme="@style/Theme.Rupex" />
 
+        <!-- Server Setup Activity -->
+        <activity
+            android:name=".ui.ServerSetupActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Rupex" />
+
         <!-- SMS Broadcast Receiver - Listens for incoming SMS -->
         <receiver
             android:name=".sms.SmsBroadcastReceiver"

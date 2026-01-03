@@ -156,7 +156,9 @@ public class ChartsFragment extends Fragment {
     }
     
     private void loadCategoryStats() {
-        viewModel.loadCategoryStatsForType(showingExpenses ? "expense" : "income");
+        int year = currentMonth.get(Calendar.YEAR);
+        int month = currentMonth.get(Calendar.MONTH) + 1;
+        viewModel.loadCategoryStatsForType(showingExpenses ? "expense" : "income", year, month);
     }
 
     private void setupPieChart() {

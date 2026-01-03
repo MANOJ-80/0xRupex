@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
     android:background="@color/surface"
-    android:padding="20dp">
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
 
     <!-- Title -->
     <TextView
@@ -22,46 +27,62 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:orientation="vertical"
         android:background="@drawable/bg_card"
         android:padding="16dp"
         android:layout_marginBottom="16dp">
 
-        <LinearLayout
-            android:layout_width="0dp"
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:hint="Merchant"
+            app:boxBackgroundMode="none"
+            android:padding="0dp"
+            app:contentPadding="0dp">
 
-            <TextView
-                android:id="@+id/tvMerchant"
-                android:layout_width="wrap_content"
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etMerchant"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Merchant Name"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary" />
+                android:inputType="textCapWords"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
-            <TextView
-                android:id="@+id/tvDateTime"
-                android:layout_width="wrap_content"
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Amount"
+            app:boxBackgroundMode="none"
+            android:padding="0dp"
+            app:contentPadding="0dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etAmount"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="01 Jan 2026, 12:30 PM"
-                android:textSize="12sp"
-                android:textColor="@color/text_tertiary" />
-
-        </LinearLayout>
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/expense"
+                android:inputType="numberDecimal"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
-            android:id="@+id/tvAmount"
-            android:layout_width="wrap_content"
+            android:id="@+id/tvDateTime"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="₹0.00"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/expense" />
+            android:layout_marginTop="8dp"
+            android:text="01 Jan 2026, 12:30 PM ✏️"
+            android:textSize="14sp"
+            android:textColor="@color/primary"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
 
     </LinearLayout>
 
@@ -179,4 +200,6 @@
 
     </LinearLayout>
 
-</LinearLayout>
+    </LinearLayout>
+
+</ScrollView>

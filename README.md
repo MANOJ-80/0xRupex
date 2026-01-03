@@ -82,6 +82,8 @@
 
 ### Backend Setup
 
+#### Option 1: Self-Hosted (Local/VPS)
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/MANOJ-80/0xRupex.git
@@ -110,6 +112,37 @@
    ```
 
    Server runs on `http://localhost:3000`
+
+#### Option 2: Deploy to Vercel (Recommended for Production)
+
+1. **Set up Supabase Database**
+   - Create a free account at [supabase.com](https://supabase.com)
+   - Create a new project
+   - Go to **Settings → Database → Connection Pooling**
+   - Copy the **Transaction mode** connection string
+
+2. **Deploy to Vercel**
+   ```bash
+   cd backend
+   npm install -g vercel
+   vercel login
+   vercel --prod
+   ```
+
+3. **Set Environment Variables in Vercel Dashboard**
+   ```
+   DATABASE_URL=postgresql://postgres.xxx:[PASSWORD]@aws-0-region.pooler.supabase.com:6543/postgres
+   JWT_SECRET=your-secure-random-secret
+   NODE_ENV=production
+   ```
+
+4. **Run migrations on Supabase**
+   ```bash
+   # Set DATABASE_URL locally to Supabase pooler URL, then:
+   npm run migrate
+   ```
+
+**Production API:** `https://your-project.vercel.app/api/v1/`
 
 ### Android Setup
 

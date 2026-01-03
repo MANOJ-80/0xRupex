@@ -285,8 +285,8 @@ public class TransactionsFragment extends Fragment implements EditTransactionDia
     }
 
     @Override
-    public void onTransactionEdited(long transactionId, String newCategory, String newType, String note) {
-        viewModel.updateTransaction(transactionId, newCategory, newType, note);
+    public void onTransactionEdited(long transactionId, String newCategory, String newType, String note, Double amount, String merchant, Long transactionAt) {
+        viewModel.updateTransaction(transactionId, newCategory, newType, note, amount, merchant, transactionAt);
         Toast.makeText(requireContext(), "Transaction updated", Toast.LENGTH_SHORT).show();
     }
 

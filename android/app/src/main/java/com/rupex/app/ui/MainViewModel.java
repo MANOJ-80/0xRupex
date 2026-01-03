@@ -223,15 +223,24 @@ public class MainViewModel extends AndroidViewModel {
     }
 
     /**
-     * Update a transaction's category, type, and note
+     * Update a transaction's category, type, note, amount, merchant, and date/time
      */
-    public void updateTransaction(long transactionId, String category, String type, String note) {
+    public void updateTransaction(long transactionId, String category, String type, String note, Double amount, String merchant, Long transactionAt) {
         Executors.newSingleThreadExecutor().execute(() -> {
             // Update local database
             database.pendingTransactionDao().updateCategory(transactionId, category);
             database.pendingTransactionDao().updateType(transactionId, type);
             if (note != null) {
                 database.pendingTransactionDao().updateNote(transactionId, note);
+            }
+            if (amount != null && amount > 0) {
+                database.pendingTransactionDao().updateAmount(transactionId, amount);
+            }
+            if (merchant != null && !merchant.isEmpty()) {
+                database.pendingTransactionDao().updateMerchant(transactionId, merchant);
+            }
+            if (transactionAt != null && transactionAt > 0) {
+                database.pendingTransactionDao().updateTransactionAt(transactionId, transactionAt);
             }
             
             // Get the transaction to check if it has a server ID
@@ -263,6 +272,15 @@ public class MainViewModel extends AndroidViewModel {
                 if (note != null) {
                     request.setNotes(note);
                 }
+                if (amount != null && amount > 0) {
+                    request.setAmount(amount);
+                }
+                if (merchant != null && !merchant.isEmpty()) {
+                    request.setMerchant(merchant);
+                }
+                if (transactionAt != null && transactionAt > 0) {
+                    request.setTransactionAt(transactionAt);
+                }
                 
                 try {
                     Response<ApiResponse<TransactionDto>> response = 
@@ -286,10 +304,17 @@ public class MainViewModel extends AndroidViewModel {
     }
 
     /**
+     * Update a transaction's category, type, and note (legacy method)
+     */
+    public void updateTransaction(long transactionId, String category, String type, String note) {
+        updateTransaction(transactionId, category, type, note, null, null, null);
+    }
+
+    /**
      * Update a transaction's category and type (legacy method)
      */
     public void updateTransaction(long transactionId, String category, String type) {
-        updateTransaction(transactionId, category, type, null);
+        updateTransaction(transactionId, category, type, null, null, null, null);
     }
 
     public void syncTransactions() {
@@ -373,6 +398,43 @@ public class MainViewModel extends AndroidViewModel {
                 results = database.pendingTransactionDao().getCategoryStatsForIncome();
             } else {
                 results = database.pendingTransactionDao().getCategoryStatsForExpenses();
+            }
+            
+            if (results == null || results.isEmpty()) {
+                categoryStats.postValue(new ArrayList<>());
+                return;
+            }
+            
+            // Calculate total for percentage
+            double total = 0;
+            for (PendingTransactionDao.CategoryStatResult result : results) {
+                total += result.total;
+            }
+            
+            // Convert to CategoryStat with percentage
+            List<CategoryStat> stats = new ArrayList<>();
+            int id = 1;
+            for (PendingTransactionDao.CategoryStatResult result : results) {
+                double percentage = total > 0 ? (result.total / total) * 100 : 0;
+                String categoryName = result.category != null ? result.category : "Uncategorized";
+                stats.add(new CategoryStat(id++, categoryName, result.total, percentage));
+            }
+            
+            categoryStats.postValue(stats);
+        });
+    }
+    
+    public void loadCategoryStatsForType(String type, int year, int month) {
+        // Load from local database for specific type (expense or income) filtered by month
+        Executors.newSingleThreadExecutor().execute(() -> {
+            String yearStr = String.valueOf(year);
+            String monthStr = String.format("%02d", month); // Pad with leading zero
+            
+            List<PendingTransactionDao.CategoryStatResult> results;
+            if ("income".equals(type)) {
+                results = database.pendingTransactionDao().getCategoryStatsForIncomeByMonth(yearStr, monthStr);
+            } else {
+                results = database.pendingTransactionDao().getCategoryStatsForExpensesByMonth(yearStr, monthStr);
             }
             
             if (results == null || results.isEmpty()) {

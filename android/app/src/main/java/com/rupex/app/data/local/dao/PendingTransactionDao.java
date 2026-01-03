@@ -95,6 +95,14 @@ public interface PendingTransactionDao {
     @Query("UPDATE pending_transactions SET merchant = :merchant, synced = 0 WHERE id = :id")
     void updateMerchant(long id, String merchant);
     
+    // Update amount
+    @Query("UPDATE pending_transactions SET amount = :amount, synced = 0 WHERE id = :id")
+    void updateAmount(long id, double amount);
+    
+    // Update transaction date/time
+    @Query("UPDATE pending_transactions SET transaction_at = :transactionAt, synced = 0 WHERE id = :id")
+    void updateTransactionAt(long id, long transactionAt);
+    
     // Update bank info (used when SMS has better info than notification)
     @Query("UPDATE pending_transactions SET bank_name = :bankName, last_4_digits = :last4Digits, synced = 0 WHERE id = :id")
     void updateBankInfo(long id, String bankName, String last4Digits);
@@ -110,6 +118,14 @@ public interface PendingTransactionDao {
     // Category stats for income
     @Query("SELECT category, SUM(amount) as total, COUNT(*) as count FROM pending_transactions WHERE type = 'income' GROUP BY category ORDER BY total DESC")
     List<CategoryStatResult> getCategoryStatsForIncome();
+    
+    // Category stats for expenses filtered by month
+    @Query("SELECT category, SUM(amount) as total, COUNT(*) as count FROM pending_transactions WHERE type = 'expense' AND strftime('%Y', transaction_at/1000, 'unixepoch') = :year AND strftime('%m', transaction_at/1000, 'unixepoch') = :month GROUP BY category ORDER BY total DESC")
+    List<CategoryStatResult> getCategoryStatsForExpensesByMonth(String year, String month);
+
+    // Category stats for income filtered by month
+    @Query("SELECT category, SUM(amount) as total, COUNT(*) as count FROM pending_transactions WHERE type = 'income' AND strftime('%Y', transaction_at/1000, 'unixepoch') = :year AND strftime('%m', transaction_at/1000, 'unixepoch') = :month GROUP BY category ORDER BY total DESC")
+    List<CategoryStatResult> getCategoryStatsForIncomeByMonth(String year, String month);
 
     // Inner class for category stats result
     class CategoryStatResult {
