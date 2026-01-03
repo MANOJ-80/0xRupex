@@ -1,10 +1,5 @@
 # 💰 0xRupex - Privacy-First Personal Finance Manager
 
-<p align="center">
-  <img src="screenshots/home_with_transactions.png" width="250" alt="Home Screen">
-  <img src="screenshots/transactions_tab.png" width="250" alt="Transactions">
-  <img src="screenshots/charts_tab.png" width="250" alt="Charts">
-</p>
 
 **0xRupex** is a privacy-focused personal finance manager for Android that automatically tracks your expenses from SMS and UPI notifications. Your financial data stays on YOUR device and YOUR server - no third-party access.
 
