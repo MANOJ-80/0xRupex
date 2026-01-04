@@ -34,6 +34,9 @@ public interface PendingTransactionDao {
 
     @Query("SELECT COUNT(*) FROM pending_transactions WHERE synced = 0")
     LiveData<Integer> getUnsyncedCountLive();
+    
+    @Query("SELECT COUNT(*) FROM pending_transactions WHERE source = 'notification'")
+    LiveData<Integer> getNotificationParsedCountLive();
 
     @Query("SELECT EXISTS(SELECT 1 FROM pending_transactions WHERE sms_hash = :smsHash)")
     boolean existsBySmsHash(String smsHash);

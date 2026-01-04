@@ -52,6 +52,7 @@ public class MainViewModel extends AndroidViewModel {
     // Local data
     private final LiveData<List<PendingTransaction>> transactions;
     private final LiveData<Integer> pendingCount;
+    private final LiveData<Integer> notificationParsedCount;
     private final LiveData<Double> totalBalance;
     private final LiveData<Double> totalIncome;
     private final LiveData<Double> totalExpense;
@@ -74,6 +75,7 @@ public class MainViewModel extends AndroidViewModel {
         // Local LiveData
         transactions = database.pendingTransactionDao().getAllLive();
         pendingCount = database.pendingTransactionDao().getUnsyncedCountLive();
+        notificationParsedCount = database.pendingTransactionDao().getNotificationParsedCountLive();
         // Calculate balance from transactions (income - expense)
         totalBalance = database.pendingTransactionDao().getNetBalanceLive();
         totalIncome = database.pendingTransactionDao().getTotalIncomeLive();
@@ -95,6 +97,10 @@ public class MainViewModel extends AndroidViewModel {
 
     public LiveData<Integer> getPendingCount() {
         return pendingCount;
+    }
+
+    public LiveData<Integer> getNotificationParsedCount() {
+        return notificationParsedCount;
     }
 
     public LiveData<Double> getTotalBalance() {

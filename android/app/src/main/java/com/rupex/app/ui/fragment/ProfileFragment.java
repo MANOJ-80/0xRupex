@@ -40,7 +40,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvUserName;
     private TextView tvUserEmail;
     private TextView tvTotalTransactions;
-    private TextView tvAccountCount;
+    private TextView tvNotificationCount;
     private TextView tvSmsCount;
     private TextView tvSmsStatus;
     private TextView tvNotificationStatus;
@@ -65,7 +65,7 @@ public class ProfileFragment extends Fragment {
         tvUserName = view.findViewById(R.id.tvUserName);
         tvUserEmail = view.findViewById(R.id.tvUserEmail);
         tvTotalTransactions = view.findViewById(R.id.tvTotalTransactions);
-        tvAccountCount = view.findViewById(R.id.tvAccountCount);
+        tvNotificationCount = view.findViewById(R.id.tvNotificationCount);
         tvSmsCount = view.findViewById(R.id.tvSmsCount);
         tvSmsStatus = view.findViewById(R.id.tvSmsStatus);
         tvNotificationStatus = view.findViewById(R.id.tvNotificationStatus);
@@ -138,11 +138,9 @@ public class ProfileFragment extends Fragment {
             }
         });
 
-        // Observe accounts
-        viewModel.getAccounts().observe(getViewLifecycleOwner(), accounts -> {
-            if (accounts != null) {
-                tvAccountCount.setText(String.valueOf(accounts.size()));
-            }
+        // Observe notification parsed count
+        viewModel.getNotificationParsedCount().observe(getViewLifecycleOwner(), count -> {
+            tvNotificationCount.setText(String.valueOf(count != null ? count : 0));
         });
 
         // Observe pending count (SMS parsed)
@@ -245,6 +243,5 @@ public class ProfileFragment extends Fragment {
         updateSmsStatus();
         updateNotificationStatus();
         viewModel.loadTransactions();
-        viewModel.loadAccounts();
     }
 }

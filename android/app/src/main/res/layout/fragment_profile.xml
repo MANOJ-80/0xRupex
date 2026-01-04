@@ -102,7 +102,7 @@
                 android:gravity="center">
 
                 <TextView
-                    android:id="@+id/tvAccountCount"
+                    android:id="@+id/tvNotificationCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
@@ -113,7 +113,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Accounts"
+                    android:text="Notification Parsed"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary" />
             </LinearLayout>
