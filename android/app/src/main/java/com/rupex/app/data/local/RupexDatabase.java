@@ -7,10 +7,12 @@ import androidx.room.Room;
 import androidx.room.RoomDatabase;
 
 import com.rupex.app.data.local.dao.AccountDao;
+import com.rupex.app.data.local.dao.ActivityLogDao;
 import com.rupex.app.data.local.dao.CategoryDao;
 import com.rupex.app.data.local.dao.PendingTransactionDao;
 import com.rupex.app.data.local.dao.TransactionDao;
 import com.rupex.app.data.local.entity.Account;
+import com.rupex.app.data.local.entity.ActivityLog;
 import com.rupex.app.data.local.entity.Category;
 import com.rupex.app.data.local.entity.PendingTransaction;
 import com.rupex.app.data.local.entity.Transaction;
@@ -29,9 +31,10 @@ import com.rupex.app.data.local.entity.Transaction;
         PendingTransaction.class,
         Transaction.class,
         Account.class,
-        Category.class
+        Category.class,
+        ActivityLog.class
     },
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 public abstract class RupexDatabase extends RoomDatabase {
@@ -44,6 +47,7 @@ public abstract class RupexDatabase extends RoomDatabase {
     public abstract TransactionDao transactionDao();
     public abstract AccountDao accountDao();
     public abstract CategoryDao categoryDao();
+    public abstract ActivityLogDao activityLogDao();
 
     /**
      * Get singleton database instance
@@ -75,6 +79,7 @@ public abstract class RupexDatabase extends RoomDatabase {
                 INSTANCE.transactionDao().deleteAll();
                 INSTANCE.accountDao().deleteAll();
                 INSTANCE.categoryDao().deleteAll();
+                INSTANCE.activityLogDao().deleteAll();
             });
         }
     }

@@ -10,7 +10,9 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
 
 import com.rupex.app.data.local.RupexDatabase;
+import com.rupex.app.data.local.dao.ActivityLogDao;
 import com.rupex.app.data.local.dao.PendingTransactionDao;
+import com.rupex.app.data.local.entity.ActivityLog;
 import com.rupex.app.data.local.entity.PendingTransaction;
 import com.rupex.app.data.model.Account;
 import com.rupex.app.data.model.Category;
@@ -53,6 +55,7 @@ public class MainViewModel extends AndroidViewModel {
     private final LiveData<List<PendingTransaction>> transactions;
     private final LiveData<Integer> pendingCount;
     private final LiveData<Integer> notificationParsedCount;
+    private final LiveData<List<ActivityLog>> activityLogs;
     private final LiveData<Double> totalBalance;
     private final LiveData<Double> totalIncome;
     private final LiveData<Double> totalExpense;
@@ -76,6 +79,7 @@ public class MainViewModel extends AndroidViewModel {
         transactions = database.pendingTransactionDao().getAllLive();
         pendingCount = database.pendingTransactionDao().getUnsyncedCountLive();
         notificationParsedCount = database.pendingTransactionDao().getNotificationParsedCountLive();
+        activityLogs = database.activityLogDao().getRecentLogs(50); // Show last 50 logs
         // Calculate balance from transactions (income - expense)
         totalBalance = database.pendingTransactionDao().getNetBalanceLive();
         totalIncome = database.pendingTransactionDao().getTotalIncomeLive();
@@ -101,6 +105,10 @@ public class MainViewModel extends AndroidViewModel {
 
     public LiveData<Integer> getNotificationParsedCount() {
         return notificationParsedCount;
+    }
+
+    public LiveData<List<ActivityLog>> getActivityLogs() {
+        return activityLogs;
     }
 
     public LiveData<Double> getTotalBalance() {

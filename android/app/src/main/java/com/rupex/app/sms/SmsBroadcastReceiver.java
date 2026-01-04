@@ -13,6 +13,7 @@ import com.rupex.app.data.local.entity.PendingTransaction;
 import com.rupex.app.sms.parser.SmsParser;
 import com.rupex.app.sms.parser.ParsedSms;
 import com.rupex.app.sync.SyncManager;
+import com.rupex.app.util.ActivityLogger;
 
 import java.util.concurrent.Executors;
 
@@ -90,6 +91,11 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
                     parsed.getType(), parsed.getAmount(), parsed.getBankName(),
                     parsed.getMerchant(), parsed.getCategory()));
 
+            // Log that SMS was captured
+            ActivityLogger.logCaptured(context, "sms",
+                    "SMS from " + parsed.getBankName(),
+                    parsed.getAmount(), parsed.getMerchant());
+
             // Create pending transaction entity
             PendingTransaction pendingTxn = new PendingTransaction();
             pendingTxn.setType(parsed.getType());
@@ -114,6 +120,10 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
             // Check 1: Duplicate by SMS hash (exact same SMS)
             if (db.pendingTransactionDao().existsBySmsHash(pendingTxn.getSmsHash())) {
                 Log.d(TAG, "Duplicate SMS detected, skipping");
+                ActivityLogger.logRejected(context, "sms",
+                        "Duplicate SMS detected",
+                        "Same SMS hash already exists",
+                        parsed.getAmount(), parsed.getMerchant());
                 return;
             }
             
@@ -135,6 +145,14 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
                     db.pendingTransactionDao().updateBankInfo(crossSource.getId(), 
                             parsed.getBankName(), parsed.getLast4Digits());
                     Log.d(TAG, "Updated bank info to: " + parsed.getBankName());
+                    ActivityLogger.logAdded(context, "sms",
+                            "Updated bank info for existing transaction",
+                            parsed.getAmount(), parsed.getMerchant());
+                } else {
+                    ActivityLogger.logRejected(context, "sms",
+                            "Cross-source duplicate",
+                            "Notification already captured this transaction",
+                            parsed.getAmount(), parsed.getMerchant());
                 }
                 return;
             }
@@ -142,6 +160,11 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
             // Insert into database
             long id = db.pendingTransactionDao().insert(pendingTxn);
             Log.i(TAG, "Saved pending transaction with ID: " + id);
+
+            // Log successful addition
+            ActivityLogger.logAdded(context, "sms",
+                    "Transaction added from SMS",
+                    parsed.getAmount(), parsed.getMerchant());
 
             // Trigger sync
             SyncManager.scheduleSyncNow(context);

@@ -21,10 +21,14 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.rupex.app.R;
+import com.rupex.app.data.local.entity.ActivityLog;
 import com.rupex.app.notification.PaymentNotificationListener;
 import com.rupex.app.sync.SyncManager;
+import com.rupex.app.ui.ActivityLogAdapter;
 import com.rupex.app.ui.LoginActivity;
 import com.rupex.app.ui.MainViewModel;
 import com.rupex.app.util.TokenManager;
@@ -47,8 +51,10 @@ public class ProfileFragment extends Fragment {
     private View notificationStatusDot;
     private LinearLayout optionSmsPermission;
     private LinearLayout optionNotificationAccess;
-    private LinearLayout optionSync;
     private LinearLayout optionLogout;
+    private RecyclerView rvActivityLogs;
+    private TextView tvEmptyLogs;
+    private ActivityLogAdapter logAdapter;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -72,12 +78,14 @@ public class ProfileFragment extends Fragment {
         notificationStatusDot = view.findViewById(R.id.notificationStatusDot);
         optionSmsPermission = view.findViewById(R.id.optionSmsPermission);
         optionNotificationAccess = view.findViewById(R.id.optionNotificationAccess);
-        optionSync = view.findViewById(R.id.optionSync);
         optionLogout = view.findViewById(R.id.optionLogout);
+        rvActivityLogs = view.findViewById(R.id.rvActivityLogs);
+        tvEmptyLogs = view.findViewById(R.id.tvEmptyLogs);
 
         setupUserInfo();
         setupOptions();
         setupViewModel();
+        setupActivityLogs();
     }
 
     private void setupUserInfo() {
@@ -116,12 +124,6 @@ public class ProfileFragment extends Fragment {
         });
         updateNotificationStatus();
 
-        // Force sync
-        optionSync.setOnClickListener(v -> {
-            SyncManager.scheduleSyncNow(requireContext());
-            Toast.makeText(requireContext(), "Sync started...", Toast.LENGTH_SHORT).show();
-        });
-
         // Logout
         optionLogout.setOnClickListener(v -> {
             showLogoutConfirmation();
@@ -147,6 +149,24 @@ public class ProfileFragment extends Fragment {
         viewModel.getPendingCount().observe(getViewLifecycleOwner(), count -> {
             tvSmsCount.setText(String.valueOf(count != null ? count : 0));
         });
+
+        // Observe activity logs
+        viewModel.getActivityLogs().observe(getViewLifecycleOwner(), logs -> {
+            if (logs != null && !logs.isEmpty()) {
+                logAdapter.submitList(logs);
+                rvActivityLogs.setVisibility(View.VISIBLE);
+                tvEmptyLogs.setVisibility(View.GONE);
+            } else {
+                rvActivityLogs.setVisibility(View.GONE);
+                tvEmptyLogs.setVisibility(View.VISIBLE);
+            }
+        });
+    }
+
+    private void setupActivityLogs() {
+        logAdapter = new ActivityLogAdapter();
+        rvActivityLogs.setLayoutManager(new LinearLayoutManager(requireContext()));
+        rvActivityLogs.setAdapter(logAdapter);
     }
 
     private boolean hasSmsPermissions() {

@@ -12,6 +12,7 @@ import android.widget.RemoteViews;
 
 import com.rupex.app.data.local.RupexDatabase;
 import com.rupex.app.data.local.entity.PendingTransaction;
+import com.rupex.app.util.ActivityLogger;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -50,6 +51,10 @@ public class PaymentNotificationListener extends NotificationListenerService {
         }
 
         Log.d(TAG, "Payment notification from " + packageName);
+        
+        // Log that notification was captured
+        ActivityLogger.logCaptured(getApplicationContext(), "notification", 
+                "Notification from " + getAppName(packageName), null, null);
         
         // Try multiple methods to extract notification text
         String title = "";
@@ -109,6 +114,9 @@ public class PaymentNotificationListener extends NotificationListenerService {
             saveTransaction(parsed, packageName);
         } else {
             Log.d(TAG, "Could not parse transaction from notification");
+            ActivityLogger.logRejected(getApplicationContext(), "notification",
+                    "Could not parse notification: " + (title + " " + content).substring(0, Math.min(50, (title + " " + content).length())),
+                    "Parse failed", null, null);
         }
     }
     
@@ -142,6 +150,10 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 
                 if (existing != null) {
                     Log.d(TAG, "Duplicate transaction (same merchant), skipping");
+                    ActivityLogger.logRejected(getApplicationContext(), "notification",
+                            "Duplicate transaction detected",
+                            "Same merchant and amount within 2 minutes",
+                            parsed.amount, parsed.merchant);
                     return;
                 }
                 
@@ -162,6 +174,14 @@ public class PaymentNotificationListener extends NotificationListenerService {
                         // Update with better merchant name from notification
                         db.pendingTransactionDao().updateMerchant(crossSource.getId(), parsed.merchant);
                         Log.d(TAG, "Updated merchant name to: " + parsed.merchant);
+                        ActivityLogger.logAdded(getApplicationContext(), "notification",
+                                "Updated merchant info for existing transaction",
+                                parsed.amount, parsed.merchant);
+                    } else {
+                        ActivityLogger.logRejected(getApplicationContext(), "notification",
+                                "Cross-source duplicate",
+                                "SMS already captured this transaction",
+                                parsed.amount, parsed.merchant);
                     }
                     return;
                 }
@@ -183,6 +203,11 @@ public class PaymentNotificationListener extends NotificationListenerService {
 
                 db.pendingTransactionDao().insert(txn);
                 Log.d(TAG, "Saved UPI transaction: ₹" + parsed.amount + " to " + parsed.merchant);
+                
+                // Log successful addition
+                ActivityLogger.logAdded(getApplicationContext(), "notification",
+                        "Transaction added from " + getAppName(packageName),
+                        parsed.amount, parsed.merchant);
 
             } catch (Exception e) {
                 Log.e(TAG, "Error saving transaction", e);
