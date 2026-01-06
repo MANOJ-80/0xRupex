@@ -141,18 +141,21 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 RupexDatabase db = RupexDatabase.getInstance(getApplicationContext());
 
                 long now = System.currentTimeMillis();
-                long twoMinutesAgo = now - 120000; // 2 minutes window for cross-source dedup
+                long timeWindow = 900000; // 15 minutes for robustness
+                long startTime = now - timeWindow;
+                long endTime = now + timeWindow;
+
                 String type = parsed.isIncome ? "income" : "expense";
                 
-                // Check 1: Exact duplicate (same amount, merchant, within 2 minutes)
+                // Check 1: Exact duplicate (same amount, merchant, within window)
                 PendingTransaction existing = db.pendingTransactionDao()
-                        .findDuplicate(parsed.amount, parsed.merchant, twoMinutesAgo, now);
+                        .findDuplicate(parsed.amount, parsed.merchant, startTime, endTime);
                 
                 if (existing != null) {
                     Log.d(TAG, "Duplicate transaction (same merchant), skipping");
                     ActivityLogger.logRejected(getApplicationContext(), "notification",
                             "Duplicate transaction detected",
-                            "Same merchant and amount within 2 minutes",
+                            "Same merchant and amount",
                             parsed.amount, parsed.merchant);
                     return;
                 }
@@ -160,7 +163,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 // Check 2: Cross-source duplicate (SMS might have different merchant name)
                 // e.g., SMS says "UPI/DR" but notification says "KISHORE SENTHIL"
                 PendingTransaction crossSource = db.pendingTransactionDao()
-                        .findDuplicateByAmountAndTime(parsed.amount, type, twoMinutesAgo, now);
+                        .findDuplicateLoose(parsed.amount, type, startTime, endTime);
                 
                 if (crossSource != null) {
                     Log.d(TAG, "Cross-source duplicate detected (SMS already captured this). Amount: ₹" 

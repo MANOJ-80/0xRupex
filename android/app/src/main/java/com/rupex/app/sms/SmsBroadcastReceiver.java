@@ -128,12 +128,13 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
             }
             
             // Check 2: Cross-source duplicate (notification might have already captured this)
-            // Use 2-minute window since notification usually arrives first
-            long twoMinutesAgo = timestamp - 120000;
-            long twoMinutesAfter = timestamp + 120000;
+            // Use 15-minute window (900000ms) because SMS can be delayed significantly
+            long timeWindow = 900000; 
+            long startTime = timestamp - timeWindow;
+            long endTime = timestamp + timeWindow;
+            
             PendingTransaction crossSource = db.pendingTransactionDao()
-                    .findDuplicateByAmountAndTime(parsed.getAmount(), parsed.getType(), 
-                            twoMinutesAgo, twoMinutesAfter);
+                    .findDuplicateLoose(parsed.getAmount(), parsed.getType(), startTime, endTime);
             
             if (crossSource != null) {
                 Log.d(TAG, "Cross-source duplicate detected (notification already captured). Amount: ₹" 

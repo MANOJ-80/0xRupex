@@ -4,13 +4,16 @@
     <style name="Theme.Rupex" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="colorSecondary">@color/accent</item>
         <item name="android:colorBackground">@color/background</item>
         <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/text_primary</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowBackground">@color/background</item>
     </style>
 
@@ -18,44 +21,57 @@
     <style name="TextAppearance.Rupex.Headline" parent="TextAppearance.Material3.HeadlineMedium">
         <item name="android:textColor">@color/text_primary</item>
         <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">28sp</item>
     </style>
 
     <style name="TextAppearance.Rupex.Title" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textSize">20sp</item>
     </style>
 
     <style name="TextAppearance.Rupex.Body" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:textSize">16sp</item>
     </style>
 
     <style name="TextAppearance.Rupex.Amount.Income" parent="TextAppearance.Material3.TitleMedium">
         <item name="android:textColor">@color/income</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <style name="TextAppearance.Rupex.Amount.Expense" parent="TextAppearance.Material3.TitleMedium">
         <item name="android:textColor">@color/expense</item>
-        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
     <!-- Button Styles -->
     <style name="Widget.Rupex.Button" parent="Widget.Material3.Button">
         <item name="backgroundTint">@color/primary</item>
-        <item name="android:textColor">@color/text_primary</item>
-        <item name="cornerRadius">12dp</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:paddingVertical">12dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <style name="Widget.Rupex.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
-        <item name="strokeColor">@color/primary</item>
-        <item name="android:textColor">@color/primary</item>
-        <item name="cornerRadius">12dp</item>
+        <item name="strokeColor">@color/primary_light</item>
+        <item name="android:textColor">@color/primary_light</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:paddingVertical">12dp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <!-- Card Style -->
     <style name="Widget.Rupex.Card" parent="Widget.Material3.CardView.Elevated">
         <item name="cardBackgroundColor">@color/surface</item>
-        <item name="cardCornerRadius">16dp</item>
+        <item name="cardCornerRadius">24dp</item>
         <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="strokeColor">@color/divider</item>
     </style>
 
     <!-- Dialog Theme -->

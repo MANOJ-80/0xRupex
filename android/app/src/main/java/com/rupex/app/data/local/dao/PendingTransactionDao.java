@@ -93,6 +93,11 @@ public interface PendingTransactionDao {
     // This catches cases where bank SMS and UPI notification both report same transaction
     @Query("SELECT * FROM pending_transactions WHERE amount = :amount AND type = :type AND transaction_at BETWEEN :startTime AND :endTime LIMIT 1")
     PendingTransaction findDuplicateByAmountAndTime(double amount, String type, long startTime, long endTime);
+
+    // Loose duplicate check with potentially different merchant names (e.g. "UPI-REF" vs "Amazon")
+    // Amount must match exactly.
+    @Query("SELECT * FROM pending_transactions WHERE amount = :amount AND type = :type AND transaction_at BETWEEN :startTime AND :endTime LIMIT 1")
+    PendingTransaction findDuplicateLoose(double amount, String type, long startTime, long endTime);
     
     // Update merchant name (used when notification has better info than SMS)
     @Query("UPDATE pending_transactions SET merchant = :merchant, synced = 0 WHERE id = :id")

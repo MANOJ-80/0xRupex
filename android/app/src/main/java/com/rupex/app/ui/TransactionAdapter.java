@@ -172,23 +172,23 @@ public class TransactionAdapter extends ListAdapter<PendingTransaction, Transact
                 binding.tvNote.setVisibility(View.GONE);
             }
 
-            // Sync status indicator
-            if (transaction.isSynced()) {
-                binding.iconSyncStatus.setImageResource(R.drawable.ic_check);
-                binding.iconSyncStatus.setColorFilter(
-                        binding.getRoot().getContext().getColor(R.color.success)
-                );
-            } else {
-                binding.iconSyncStatus.setImageResource(R.drawable.ic_sync);
-                binding.iconSyncStatus.setColorFilter(
-                        binding.getRoot().getContext().getColor(R.color.warning)
-                );
-            }
+            // Sync status indicator - REMOVED in UI refactor
+            // if (transaction.isSynced()) {
+            //     binding.iconSyncStatus.setImageResource(R.drawable.ic_check);
+            //     binding.iconSyncStatus.setColorFilter(
+            //             binding.getRoot().getContext().getColor(R.color.success)
+            //     );
+            // } else {
+            //     binding.iconSyncStatus.setImageResource(R.drawable.ic_sync);
+            //     binding.iconSyncStatus.setColorFilter(
+            //             binding.getRoot().getContext().getColor(R.color.warning)
+            //     );
+            // }
 
             // Account info (hidden by default now)
-            if (transaction.getLast4Digits() != null) {
-                binding.textAccount.setText("••" + transaction.getLast4Digits());
-            }
+            // if (transaction.getLast4Digits() != null) {
+            //     binding.textAccount.setText("••" + transaction.getLast4Digits());
+            // }
         }
     }
 }
