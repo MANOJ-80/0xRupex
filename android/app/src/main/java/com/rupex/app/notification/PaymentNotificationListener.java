@@ -34,7 +34,6 @@ public class PaymentNotificationListener extends NotificationListenerService {
     private static final String AMAZON_PAY = "in.amazon.mShop.android.shopping";
     private static final String BHIM = "in.org.npci.upiapp";
     private static final String CRED = "com.dreamplug.androidapp";
-    private static final String WHATSAPP = "com.whatsapp"; // WhatsApp Pay
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -131,8 +130,7 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 || PAYTM.equals(packageName)
                 || AMAZON_PAY.equals(packageName)
                 || BHIM.equals(packageName)
-                || CRED.equals(packageName)
-                || WHATSAPP.equals(packageName);
+                || CRED.equals(packageName);
     }
 
     private void saveTransaction(UpiNotificationParser.ParsedNotification parsed, String packageName) {
@@ -226,7 +224,6 @@ public class PaymentNotificationListener extends NotificationListenerService {
             case AMAZON_PAY: return "Amazon Pay";
             case BHIM: return "BHIM";
             case CRED: return "CRED";
-            case WHATSAPP: return "WhatsApp Pay";
             default: return "UPI";
         }
     }

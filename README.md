@@ -1,34 +1,38 @@
 # 💰 0xRupex - Privacy-First Personal Finance Manager
 
-
 **0xRupex** is a privacy-focused personal finance manager for Android that automatically tracks your expenses from SMS and UPI notifications. Your financial data stays on YOUR device and YOUR server - no third-party access.
 
 ## ✨ Features
 
 ### 📱 Auto-Transaction Capture
+
 - **SMS Parsing** - Automatically reads bank SMS and extracts transaction details (amount, merchant, bank, type)
-- **UPI Notification Listener** - Captures transactions from GPay, PhonePe, Paytm, Amazon Pay, BHIM, CRED, and WhatsApp Pay
+- **UPI Notification Listener** - Captures transactions from GPay, PhonePe, Paytm, Amazon Pay, BHIM, and CRED
 - **Cross-Source Deduplication** - Prevents duplicate entries when both SMS and notification capture the same transaction
 - **Smart Merchant Detection** - Enriches merchant names from notifications when SMS has generic info
 
 ### 💳 Manual Transactions
+
 - Add income/expense transactions manually
 - Assign categories and add notes
 - Edit existing transactions (category, type, notes)
 - Swipe-to-delete with confirmation
 
 ### 📊 Analytics & Insights
+
 - **Monthly Summary** - Total income, expense, and net balance
 - **Category Breakdown** - Visual pie charts showing spending by category
 - **Transaction History** - Searchable, filterable list of all transactions
 
 ### 🔄 Backend Sync
+
 - Full sync with self-hosted Node.js backend
 - Real-time updates when editing transactions
 - Fetch transactions from backend on login
 - Secure JWT authentication with refresh tokens
 
 ### 🔒 Privacy First
+
 - **Self-Hosted Backend** - Run your own server, own your data
 - **No Third-Party Services** - No analytics, no tracking, no ads
 - **Encrypted Storage** - Tokens stored in Android EncryptedSharedPreferences
@@ -80,28 +84,33 @@
 #### Option 1: Self-Hosted (Local/VPS)
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/MANOJ-80/0xRupex.git
    cd 0xRupex/backend
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment**
+
    ```bash
    cp .env.example .env
    # Edit .env with your database credentials
    ```
 
 4. **Run migrations**
+
    ```bash
    npm run migrate
    ```
 
 5. **Start the server**
+
    ```bash
    npm run dev
    ```
@@ -111,12 +120,14 @@
 #### Option 2: Deploy to Vercel (Recommended for Production)
 
 1. **Set up Supabase Database**
+
    - Create a free account at [supabase.com](https://supabase.com)
    - Create a new project
    - Go to **Settings → Database → Connection Pooling**
    - Copy the **Transaction mode** connection string
 
 2. **Deploy to Vercel**
+
    ```bash
    cd backend
    npm install -g vercel
@@ -125,6 +136,7 @@
    ```
 
 3. **Set Environment Variables in Vercel Dashboard**
+
    ```
    DATABASE_URL=postgresql://postgres.xxx:[PASSWORD]@aws-0-region.pooler.supabase.com:6543/postgres
    JWT_SECRET=your-secure-random-secret
@@ -142,19 +154,22 @@
 ### Android Setup
 
 1. **Open in Android Studio**
+
    ```bash
    cd 0xRupex/android
    # Open with Android Studio
    ```
 
 2. **Configure API URL**
-   
+
    Edit `app/build.gradle` and set your backend URL:
+
    ```gradle
    buildConfigField "String", "API_BASE_URL", "\"http://YOUR_SERVER_IP:3000/api/v1/\""
    ```
 
 3. **Build and Run**
+
    ```bash
    ./gradlew assembleDebug
    adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -168,18 +183,19 @@
 
 ## 📱 App Permissions
 
-| Permission | Purpose |
-|------------|---------|
-| `READ_SMS` | Parse bank transaction SMS |
-| `RECEIVE_SMS` | Real-time SMS detection |
+| Permission              | Purpose                           |
+| ----------------------- | --------------------------------- |
+| `READ_SMS`              | Parse bank transaction SMS        |
+| `RECEIVE_SMS`           | Real-time SMS detection           |
 | `NOTIFICATION_LISTENER` | Capture UPI payment notifications |
-| `INTERNET` | Sync with backend server |
+| `INTERNET`              | Sync with backend server          |
 
 ---
 
 ## 🔧 Tech Stack
 
 ### Android
+
 - **Language**: Java
 - **Architecture**: MVVM with Repository Pattern
 - **Database**: Room (SQLite)
@@ -188,6 +204,7 @@
 - **Charts**: MPAndroidChart
 
 ### Backend
+
 - **Runtime**: Node.js
 - **Framework**: Express.js
 - **Database**: PostgreSQL
@@ -199,6 +216,7 @@
 ## 📊 Database Schema
 
 ### Android (Room)
+
 ```
 pending_transactions
 ├── id (PK)
@@ -217,6 +235,7 @@ pending_transactions
 ```
 
 ### Backend (PostgreSQL)
+
 ```
 transactions
 ├── id (UUID, PK)
