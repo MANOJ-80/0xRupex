@@ -160,31 +160,52 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 
                 // Check 2: Cross-source duplicate (SMS might have different merchant name)
                 // e.g., SMS says "UPI/DR" but notification says "KISHORE SENTHIL"
+                // BUT: Two DIFFERENT transactions with same amount at same time from DIFFERENT people
+                // should NOT be considered duplicates!
                 PendingTransaction crossSource = db.pendingTransactionDao()
                         .findDuplicateLoose(parsed.amount, type, startTime, endTime);
                 
                 if (crossSource != null) {
-                    Log.d(TAG, "Cross-source duplicate detected (SMS already captured this). Amount: ₹" 
-                            + parsed.amount + ", existing merchant: " + crossSource.getMerchant());
-                    
-                    // If notification has better merchant info, update the existing transaction
                     String existingMerchant = crossSource.getMerchant();
-                    if ((existingMerchant == null || existingMerchant.isEmpty() 
-                            || existingMerchant.contains("UPI") || existingMerchant.contains("IMPS"))
-                            && parsed.merchant != null && !parsed.merchant.isEmpty()) {
-                        // Update with better merchant name from notification
-                        db.pendingTransactionDao().updateMerchant(crossSource.getId(), parsed.merchant);
-                        Log.d(TAG, "Updated merchant name to: " + parsed.merchant);
-                        ActivityLogger.logAdded(getApplicationContext(), "notification",
-                                "Updated merchant info for existing transaction",
-                                parsed.amount, parsed.merchant);
+                    String existingSource = crossSource.getSource();
+                    String newMerchant = parsed.merchant != null ? parsed.merchant.trim() : "";
+                    
+                    Log.d(TAG, "Potential cross-source duplicate. Amount: ₹" + parsed.amount 
+                            + ", existing merchant: " + existingMerchant 
+                            + ", new merchant: " + newMerchant
+                            + ", existing source: " + existingSource);
+                    
+                    // Determine if this is truly a duplicate or two different transactions
+                    boolean isGenericMerchant = existingMerchant == null || existingMerchant.isEmpty()
+                            || existingMerchant.contains("UPI") || existingMerchant.contains("IMPS")
+                            || existingMerchant.contains("DR/") || existingMerchant.contains("CR/");
+                    
+                    boolean merchantsAreSimilar = areMerchantsSimilar(existingMerchant, newMerchant);
+                    
+                    // Only consider it a duplicate if:
+                    // 1. Existing merchant is generic (SMS with UPI ref) - notification has better info
+                    // 2. OR merchant names are similar enough to be the same person
+                    if (isGenericMerchant || merchantsAreSimilar) {
+                        // This is a true cross-source duplicate
+                        if (isGenericMerchant && !newMerchant.isEmpty()) {
+                            // Update with better merchant name from notification
+                            db.pendingTransactionDao().updateMerchant(crossSource.getId(), newMerchant);
+                            Log.d(TAG, "Updated merchant name to: " + newMerchant);
+                            ActivityLogger.logAdded(getApplicationContext(), "notification",
+                                    "Updated merchant info for existing transaction",
+                                    parsed.amount, newMerchant);
+                        } else {
+                            ActivityLogger.logRejected(getApplicationContext(), "notification",
+                                    "Cross-source duplicate",
+                                    "Already captured this transaction",
+                                    parsed.amount, newMerchant);
+                        }
+                        return;
                     } else {
-                        ActivityLogger.logRejected(getApplicationContext(), "notification",
-                                "Cross-source duplicate",
-                                "SMS already captured this transaction",
-                                parsed.amount, parsed.merchant);
+                        // Different merchant names = different transactions, proceed to add
+                        Log.d(TAG, "Different merchants detected, treating as separate transaction. " +
+                                "Existing: '" + existingMerchant + "' vs New: '" + newMerchant + "'");
                     }
-                    return;
                 }
 
                 // Create new transaction
@@ -214,6 +235,57 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 Log.e(TAG, "Error saving transaction", e);
             }
         });
+    }
+    
+    /**
+     * Check if two merchant names are similar enough to be considered the same person/entity.
+     * This helps distinguish between:
+     * - Same transaction from different sources (SMS: "UPI-REF123" vs Notification: "MANO RAJKUMAR") 
+     * - Two DIFFERENT transactions from different people with same amount
+     */
+    private boolean areMerchantsSimilar(String merchant1, String merchant2) {
+        if (merchant1 == null || merchant2 == null) {
+            return false; // If either is null, can't compare - treat as different
+        }
+        
+        // Normalize: trim, uppercase, remove common prefixes
+        String norm1 = normalizeMerchant(merchant1);
+        String norm2 = normalizeMerchant(merchant2);
+        
+        if (norm1.isEmpty() || norm2.isEmpty()) {
+            return false; // Empty after normalization = can't compare
+        }
+        
+        // Exact match after normalization
+        if (norm1.equals(norm2)) {
+            return true;
+        }
+        
+        // Check if one contains the other (partial match)
+        // e.g., "MANO RAJKUMAR" contains "MANO"
+        if (norm1.contains(norm2) || norm2.contains(norm1)) {
+            return true;
+        }
+        
+        // Check first word match (often the first name)
+        String[] words1 = norm1.split("\\s+");
+        String[] words2 = norm2.split("\\s+");
+        if (words1.length > 0 && words2.length > 0 && 
+            words1[0].length() > 2 && words2[0].length() > 2 &&
+            words1[0].equals(words2[0])) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private String normalizeMerchant(String merchant) {
+        if (merchant == null) return "";
+        return merchant.trim()
+                .toUpperCase()
+                .replaceAll("^(MR\\s*|MRS\\s*|MS\\s*|DR\\s*)", "") // Remove titles
+                .replaceAll("[^A-Z0-9\\s]", "") // Remove special chars
+                .trim();
     }
 
     private String getAppName(String packageName) {

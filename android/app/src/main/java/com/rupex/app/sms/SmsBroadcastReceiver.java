@@ -137,25 +137,50 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
                     .findDuplicateLoose(parsed.getAmount(), parsed.getType(), startTime, endTime);
             
             if (crossSource != null) {
-                Log.d(TAG, "Cross-source duplicate detected (notification already captured). Amount: ₹" 
-                        + parsed.getAmount());
+                String existingMerchant = crossSource.getMerchant();
+                String newMerchant = parsed.getMerchant();
                 
-                // SMS usually has better bank info, so update the existing transaction
-                if (parsed.getBankName() != null && !parsed.getBankName().isEmpty()) {
-                    // Update bank name and account info from SMS
-                    db.pendingTransactionDao().updateBankInfo(crossSource.getId(), 
-                            parsed.getBankName(), parsed.getLast4Digits());
-                    Log.d(TAG, "Updated bank info to: " + parsed.getBankName());
-                    ActivityLogger.logAdded(context, "sms",
-                            "Updated bank info for existing transaction",
-                            parsed.getAmount(), parsed.getMerchant());
+                Log.d(TAG, "Potential cross-source duplicate. Amount: ₹" + parsed.getAmount()
+                        + ", existing merchant: " + existingMerchant 
+                        + ", new merchant: " + newMerchant);
+                
+                // Determine if this is truly a duplicate or two different transactions
+                boolean isGenericMerchant = existingMerchant == null || existingMerchant.isEmpty()
+                        || existingMerchant.contains("UPI") || existingMerchant.contains("IMPS")
+                        || existingMerchant.contains("DR/") || existingMerchant.contains("CR/");
+                
+                boolean existingHasGenericMerchant = isGenericMerchant;
+                boolean newHasGenericMerchant = newMerchant == null || newMerchant.isEmpty()
+                        || newMerchant.contains("UPI") || newMerchant.contains("IMPS")
+                        || newMerchant.contains("DR/") || newMerchant.contains("CR/");
+                        
+                boolean merchantsAreSimilar = areMerchantsSimilar(existingMerchant, newMerchant);
+                
+                // Only consider it a duplicate if:
+                // 1. One or both have generic merchant (e.g., "UPI-REF" vs "John Doe")
+                // 2. OR merchant names are similar enough to be the same person
+                if (existingHasGenericMerchant || newHasGenericMerchant || merchantsAreSimilar) {
+                    // SMS usually has better bank info, so update the existing transaction
+                    if (parsed.getBankName() != null && !parsed.getBankName().isEmpty()) {
+                        // Update bank name and account info from SMS
+                        db.pendingTransactionDao().updateBankInfo(crossSource.getId(), 
+                                parsed.getBankName(), parsed.getLast4Digits());
+                        Log.d(TAG, "Updated bank info to: " + parsed.getBankName());
+                        ActivityLogger.logAdded(context, "sms",
+                                "Updated bank info for existing transaction",
+                                parsed.getAmount(), parsed.getMerchant());
+                    } else {
+                        ActivityLogger.logRejected(context, "sms",
+                                "Cross-source duplicate",
+                                "Notification already captured this transaction",
+                                parsed.getAmount(), parsed.getMerchant());
+                    }
+                    return;
                 } else {
-                    ActivityLogger.logRejected(context, "sms",
-                            "Cross-source duplicate",
-                            "Notification already captured this transaction",
-                            parsed.getAmount(), parsed.getMerchant());
+                    // Different merchant names = different transactions, proceed to add
+                    Log.d(TAG, "Different merchants detected, treating as separate transaction. " +
+                            "Existing: '" + existingMerchant + "' vs New: '" + newMerchant + "'");
                 }
-                return;
             }
 
             // Insert into database
@@ -173,5 +198,51 @@ public class SmsBroadcastReceiver extends BroadcastReceiver {
         } catch (Exception e) {
             Log.e(TAG, "Error processing bank SMS", e);
         }
+    }
+    
+    /**
+     * Check if two merchant names are similar enough to be considered the same person/entity.
+     */
+    private boolean areMerchantsSimilar(String merchant1, String merchant2) {
+        if (merchant1 == null || merchant2 == null) {
+            return false;
+        }
+        
+        String norm1 = normalizeMerchant(merchant1);
+        String norm2 = normalizeMerchant(merchant2);
+        
+        if (norm1.isEmpty() || norm2.isEmpty()) {
+            return false;
+        }
+        
+        // Exact match after normalization
+        if (norm1.equals(norm2)) {
+            return true;
+        }
+        
+        // Check if one contains the other
+        if (norm1.contains(norm2) || norm2.contains(norm1)) {
+            return true;
+        }
+        
+        // Check first word match
+        String[] words1 = norm1.split("\\s+");
+        String[] words2 = norm2.split("\\s+");
+        if (words1.length > 0 && words2.length > 0 && 
+            words1[0].length() > 2 && words2[0].length() > 2 &&
+            words1[0].equals(words2[0])) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private String normalizeMerchant(String merchant) {
+        if (merchant == null) return "";
+        return merchant.trim()
+                .toUpperCase()
+                .replaceAll("^(MR\\s*|MRS\\s*|MS\\s*|DR\\s*)", "")
+                .replaceAll("[^A-Z0-9\\s]", "")
+                .trim();
     }
 }

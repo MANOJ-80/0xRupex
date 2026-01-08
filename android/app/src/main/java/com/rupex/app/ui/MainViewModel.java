@@ -181,22 +181,46 @@ public class MainViewModel extends AndroidViewModel {
                         continue; // Skip duplicate
                     }
                     
-                    // Check 2: Check if there's a local transaction (manual/sms/notification) 
-                    // that matches this server transaction - update it instead of creating new
+                    // Check 2: Check if there's a local transaction that matches this server transaction
+                    // Use a much longer time window (1 hour) since user might not open app for a while
                     long txnTime = parseServerDate(dto.getTransactionAt());
-                    long fiveMinutes = 5 * 60 * 1000;
+                    long oneHour = 60 * 60 * 1000;
+                    
+                    // First try to find by amount, type, AND merchant (most reliable)
+                    String serverMerchant = dto.getMerchant() != null ? dto.getMerchant() : "";
                     PendingTransaction existing = database.pendingTransactionDao()
-                            .findDuplicateByAmountAndTime(dto.getAmount(), dto.getType(), 
-                                    txnTime - fiveMinutes, txnTime + fiveMinutes);
+                            .findDuplicate(dto.getAmount(), serverMerchant, 
+                                    txnTime - oneHour, txnTime + oneHour);
                     
                     if (existing != null) {
-                        // Update existing local transaction with server info
+                        // Exact match found - update with server info
                         database.pendingTransactionDao().updateServerInfo(existing.getId(), dto.getId(), hash);
-                        Log.d(TAG, "Updated existing local txn with server ID: " + dto.getId());
+                        Log.d(TAG, "Linked local txn (same merchant) with server ID: " + dto.getId());
                         continue;
                     }
                     
-                    // Create new transaction
+                    // Also check by amount and time only (fallback for merchant name variations)
+                    PendingTransaction existingByTime = database.pendingTransactionDao()
+                            .findDuplicateByAmountAndTime(dto.getAmount(), dto.getType(), 
+                                    txnTime - oneHour, txnTime + oneHour);
+                    
+                    if (existingByTime != null) {
+                        // Found a match by amount/time - check if merchants are similar
+                        String localMerchant = existingByTime.getMerchant();
+                        if (areMerchantsSimilar(localMerchant, serverMerchant)) {
+                            // Same transaction, different merchant name format
+                            database.pendingTransactionDao().updateServerInfo(existingByTime.getId(), dto.getId(), hash);
+                            Log.d(TAG, "Linked local txn (similar merchant) with server ID: " + dto.getId() 
+                                    + " [local: " + localMerchant + ", server: " + serverMerchant + "]");
+                            continue;
+                        } else {
+                            // Different merchant = different transaction, let it be added
+                            Log.d(TAG, "Different merchants, treat as separate: local='" + localMerchant 
+                                    + "' vs server='" + serverMerchant + "'");
+                        }
+                    }
+                    
+                    // Create new transaction only if no local match found
                     PendingTransaction txn = new PendingTransaction();
                     txn.setAmount(dto.getAmount());
                     txn.setType(dto.getType());
@@ -219,6 +243,52 @@ public class MainViewModel extends AndroidViewModel {
                 }
             }
         });
+    }
+    
+    /**
+     * Check if two merchant names are similar enough to be considered the same
+     */
+    private boolean areMerchantsSimilar(String merchant1, String merchant2) {
+        if (merchant1 == null || merchant2 == null) {
+            return false;
+        }
+        
+        String norm1 = normalizeMerchant(merchant1);
+        String norm2 = normalizeMerchant(merchant2);
+        
+        if (norm1.isEmpty() || norm2.isEmpty()) {
+            return false;
+        }
+        
+        // Exact match
+        if (norm1.equals(norm2)) {
+            return true;
+        }
+        
+        // One contains the other
+        if (norm1.contains(norm2) || norm2.contains(norm1)) {
+            return true;
+        }
+        
+        // First word match (often the first name)
+        String[] words1 = norm1.split("\\s+");
+        String[] words2 = norm2.split("\\s+");
+        if (words1.length > 0 && words2.length > 0 && 
+            words1[0].length() > 2 && words2[0].length() > 2 &&
+            words1[0].equals(words2[0])) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    private String normalizeMerchant(String merchant) {
+        if (merchant == null) return "";
+        return merchant.trim()
+                .toUpperCase()
+                .replaceAll("^(MR\\s*|MRS\\s*|MS\\s*|DR\\s*|PAYMENT TO\\s*)", "")
+                .replaceAll("[^A-Z0-9\\s]", "")
+                .trim();
     }
     
     /**
