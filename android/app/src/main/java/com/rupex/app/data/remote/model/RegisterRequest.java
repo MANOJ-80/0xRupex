@@ -2,7 +2,7 @@ package com.rupex.app.data.remote.model;
 
 import com.google.gson.annotations.SerializedName;
 
-public class LoginRequest {
+public class RegisterRequest {
 
     @SerializedName("email")
     private String email;
@@ -10,11 +10,16 @@ public class LoginRequest {
     @SerializedName("password")
     private String password;
 
-    public LoginRequest(String email, String password) {
+    @SerializedName("name")
+    private String name;
+
+    public RegisterRequest(String email, String password, String name) {
         this.email = email;
         this.password = password;
+        this.name = name;
     }
 
     public String getEmail() { return email; }
     public String getPassword() { return password; }
+    public String getName() { return name; }
 }

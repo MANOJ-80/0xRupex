@@ -12,15 +12,13 @@ import com.rupex.app.data.remote.ApiClient;
 import com.rupex.app.data.remote.model.ApiResponse;
 import com.rupex.app.data.remote.model.AuthResponse;
 import com.rupex.app.data.remote.model.LoginRequest;
+import com.rupex.app.data.remote.model.RegisterRequest;
 import com.rupex.app.util.TokenManager;
 
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-/**
- * Login/Register activity
- */
 public class LoginActivity extends AppCompatActivity {
 
     private ActivityLoginBinding binding;
@@ -30,13 +28,12 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         binding = ActivityLoginBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
         tokenManager = TokenManager.getInstance(this);
 
-        // Check if already logged in
         if (tokenManager.isLoggedIn()) {
             navigateToMain();
             return;
@@ -49,16 +46,22 @@ public class LoginActivity extends AppCompatActivity {
         binding.btnLogin.setOnClickListener(v -> {
             String email = binding.editEmail.getText().toString().trim();
             String password = binding.editPassword.getText().toString().trim();
+            String name = binding.editName.getText().toString().trim();
 
             if (email.isEmpty() || password.isEmpty()) {
-                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please fill all required fields", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (!isLoginMode && name.isEmpty()) {
+                Toast.makeText(this, "Please enter your name", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if (isLoginMode) {
                 login(email, password);
             } else {
-                register(email, password);
+                register(email, password, name);
             }
         });
 
@@ -66,7 +69,7 @@ public class LoginActivity extends AppCompatActivity {
             isLoginMode = !isLoginMode;
             updateUI();
         });
-        
+
         binding.textChangeServer.setOnClickListener(v -> {
             startActivity(new Intent(this, ServerSetupActivity.class));
         });
@@ -77,10 +80,12 @@ public class LoginActivity extends AppCompatActivity {
             binding.btnLogin.setText("Login");
             binding.textToggleMode.setText("Don't have an account? Register");
             binding.textTitle.setText("Welcome Back");
+            binding.editName.setVisibility(View.GONE);
         } else {
             binding.btnLogin.setText("Register");
             binding.textToggleMode.setText("Already have an account? Login");
             binding.textTitle.setText("Create Account");
+            binding.editName.setVisibility(View.VISIBLE);
         }
     }
 
@@ -91,7 +96,7 @@ public class LoginActivity extends AppCompatActivity {
                 .login(new LoginRequest(email, password))
                 .enqueue(new Callback<ApiResponse<AuthResponse>>() {
                     @Override
-                    public void onResponse(Call<ApiResponse<AuthResponse>> call, 
+                    public void onResponse(Call<ApiResponse<AuthResponse>> call,
                                          Response<ApiResponse<AuthResponse>> response) {
                         showLoading(false);
                         handleAuthResponse(response);
@@ -100,20 +105,20 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
                         showLoading(false);
-                        Toast.makeText(LoginActivity.this, 
+                        Toast.makeText(LoginActivity.this,
                                 "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
     }
 
-    private void register(String email, String password) {
+    private void register(String email, String password, String name) {
         showLoading(true);
 
         ApiClient.getInstance(this).getApi()
-                .register(new LoginRequest(email, password))
+                .register(new RegisterRequest(email, password, name))
                 .enqueue(new Callback<ApiResponse<AuthResponse>>() {
                     @Override
-                    public void onResponse(Call<ApiResponse<AuthResponse>> call, 
+                    public void onResponse(Call<ApiResponse<AuthResponse>> call,
                                          Response<ApiResponse<AuthResponse>> response) {
                         showLoading(false);
                         handleAuthResponse(response);
@@ -122,7 +127,7 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
                         showLoading(false);
-                        Toast.makeText(LoginActivity.this, 
+                        Toast.makeText(LoginActivity.this,
                                 "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                     }
                 });
@@ -131,8 +136,7 @@ public class LoginActivity extends AppCompatActivity {
     private void handleAuthResponse(Response<ApiResponse<AuthResponse>> response) {
         if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
             AuthResponse auth = response.body().getData();
-            
-            // Save tokens
+
             tokenManager.saveTokens(auth.getAccessToken(), auth.getRefreshToken());
             tokenManager.saveUser(
                     auth.getUser().getId(),

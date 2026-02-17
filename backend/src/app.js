@@ -3,64 +3,70 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const mongoose = require('mongoose');
 
 const config = require('./config');
 const routes = require('./api/routes');
 const { errorHandler, notFoundHandler } = require('./api/middleware/error.middleware');
+const { connectDB } = require('./config/database');
 const logger = require('./utils/logger');
 
-const app = express();
+const createApp = () => {
+  const app = express();
 
-// Security headers
-app.use(helmet());
+  app.use(helmet());
 
-// CORS configuration
-app.use(cors({
-  origin: config.corsOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+  app.use(
+    cors({
+      origin: config.corsOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    })
+  );
 
-// Compression
-app.use(compression());
+  app.use(compression());
 
-// Request logging
-if (config.env !== 'test') {
-  app.use(morgan('combined', {
-    stream: { write: (message) => logger.info(message.trim()) },
-  }));
-}
+  if (config.env !== 'test') {
+    app.use(
+      morgan('combined', {
+        stream: { write: (message) => logger.info(message.trim()) },
+      })
+    );
+  }
 
-// Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Trust proxy for secure cookies behind reverse proxy
-app.set('trust proxy', 1);
+  app.set('trust proxy', 1);
 
-// API routes
-app.use('/api/v1', routes);
+  app.use('/api/v1', routes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: '0xRupex API',
-    version: '1.0.0',
-    description: 'Personal Finance Manager API',
-    docs: '/api/v1/health',
+  app.get('/', (req, res) => {
+    res.json({
+      name: '0xRupex API',
+      version: '2.0.0',
+      description: 'Personal Finance Manager API - MongoDB Edition',
+      docs: '/api/v1/health',
+    });
   });
-});
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+  app.get('/health', (req, res) => {
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      database: dbStatus,
+      version: '2.0.0',
+    });
+  });
 
-// 404 handler
-app.use(notFoundHandler);
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
-// Global error handler
-app.use(errorHandler);
+  return app;
+};
 
-module.exports = app;
+const app = createApp();
+
+module.exports = { app, connectDB };

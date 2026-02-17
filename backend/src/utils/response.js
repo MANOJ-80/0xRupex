@@ -1,21 +1,30 @@
-/**
- * Standard API response format
- */
-
 const success = (res, data, message = null, statusCode = 200) => {
-  return res.status(statusCode).json({
+  const response = {
     success: true,
-    message,
-    data,
-  });
+  };
+
+  if (message) response.message = message;
+
+  if (data !== null && data !== undefined) {
+    if (typeof data === 'object' && !Array.isArray(data)) {
+      Object.assign(response, data);
+    } else {
+      response.data = data;
+    }
+  }
+
+  return res.status(statusCode).json(response);
 };
 
 const error = (res, message, statusCode = 400, errors = null) => {
-  return res.status(statusCode).json({
+  const response = {
     success: false,
     error: message,
-    errors,
-  });
+  };
+
+  if (errors) response.errors = errors;
+
+  return res.status(statusCode).json(response);
 };
 
 const paginated = (res, data, pagination) => {

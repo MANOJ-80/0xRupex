@@ -1,153 +1,166 @@
-const db = require('../config/database');
+const { Category, Transaction } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
-const { DEFAULT_CATEGORIES } = require('../config/constants');
+const config = require('../config');
 
-/**
- * Category Service
- */
 class CategoryService {
-  /**
-   * Get all categories for user
-   */
   async getCategories(userId, type = null) {
-    let query = db('categories')
-      .where({ user_id: userId })
-      .orderBy('type')
-      .orderBy('name');
-
+    const query = { user: userId };
     if (type) {
-      query = query.where({ type });
+      query.type = type;
     }
-
-    return query;
+    return Category.find(query).sort({ type: 1, name: 1 });
   }
 
-  /**
-   * Get category by ID
-   */
   async getCategoryById(categoryId, userId) {
-    const category = await db('categories')
-      .where({ id: categoryId, user_id: userId })
-      .first();
-
+    const category = await Category.findOne({ _id: categoryId, user: userId });
     if (!category) {
       throw new NotFoundError('Category');
     }
-
     return category;
   }
 
-  /**
-   * Create category
-   */
   async createCategory(userId, data) {
-    // Check for duplicate name
-    const existing = await db('categories')
-      .where({ user_id: userId, name: data.name, type: data.type })
-      .first();
+    const existing = await Category.findOne({
+      user: userId,
+      name: data.name,
+      type: data.type,
+    });
 
     if (existing) {
       throw new ValidationError('Category with this name already exists');
     }
 
-    const [category] = await db('categories')
-      .insert({
-        user_id: userId,
-        name: data.name,
-        type: data.type,
-        icon: data.icon,
-        color: data.color,
-        is_system: false,
-      })
-      .returning('*');
+    const category = await Category.create({
+      user: userId,
+      name: data.name,
+      type: data.type,
+      icon: data.icon,
+      color: data.color,
+      isSystem: false,
+    });
 
     return category;
   }
 
-  /**
-   * Update category
-   */
   async updateCategory(categoryId, userId, data) {
     const category = await this.getCategoryById(categoryId, userId);
 
-    if (category.is_system && data.name !== category.name) {
+    if (category.isSystem && data.name && data.name !== category.name) {
       throw new ValidationError('Cannot rename system categories');
     }
 
-    const [updated] = await db('categories')
-      .where({ id: categoryId, user_id: userId })
-      .update({
-        name: data.name ?? category.name,
-        icon: data.icon ?? category.icon,
-        color: data.color ?? category.color,
-      })
-      .returning('*');
+    if (data.name !== undefined) category.name = data.name;
+    if (data.icon !== undefined) category.icon = data.icon;
+    if (data.color !== undefined) category.color = data.color;
 
-    return updated;
+    await category.save();
+    return category;
   }
 
-  /**
-   * Delete category
-   */
   async deleteCategory(categoryId, userId) {
     const category = await this.getCategoryById(categoryId, userId);
 
-    if (category.is_system) {
+    if (category.isSystem) {
       throw new ValidationError('Cannot delete system categories');
     }
 
-    // Check if category has transactions
-    const txCount = await db('transactions')
-      .where({ category_id: categoryId })
-      .count('id as count')
-      .first();
+    const txCount = await Transaction.countDocuments({ category: categoryId });
 
-    if (parseInt(txCount.count) > 0) {
+    if (txCount > 0) {
       throw new ValidationError('Cannot delete category with transactions');
     }
 
-    await db('categories').where({ id: categoryId }).del();
+    await Category.deleteOne({ _id: categoryId });
   }
 
-  /**
-   * Initialize default categories for user
-   */
   async initializeDefaults(userId) {
-    const existing = await db('categories')
-      .where({ user_id: userId })
-      .count('id as count')
-      .first();
+    const existing = await Category.countDocuments({ user: userId });
 
-    if (parseInt(existing.count) > 0) {
-      return; // Already initialized
+    if (existing > 0) {
+      return;
     }
 
-    const categories = DEFAULT_CATEGORIES.map((cat) => ({
-      ...cat,
-      user_id: userId,
-      is_system: true,
-    }));
+    const categories = [];
 
-    await db('categories').insert(categories);
+    for (const cat of config.DEFAULT_CATEGORIES.expense) {
+      categories.push({
+        user: userId,
+        name: cat.name,
+        type: 'expense',
+        icon: cat.icon,
+        color: cat.color,
+        isSystem: true,
+      });
+    }
+
+    for (const cat of config.DEFAULT_CATEGORIES.income) {
+      categories.push({
+        user: userId,
+        name: cat.name,
+        type: 'income',
+        icon: cat.icon,
+        color: cat.color,
+        isSystem: true,
+      });
+    }
+
+    await Category.insertMany(categories);
   }
 
-  /**
-   * Get category statistics
-   */
   async getCategoryStats(userId, startDate, endDate) {
-    return db('transactions')
-      .select('category_id')
-      .select('categories.name as category_name')
-      .select('categories.icon')
-      .select('categories.color')
-      .sum('amount as total')
-      .count('transactions.id as count')
-      .join('categories', 'transactions.category_id', 'categories.id')
-      .where('transactions.user_id', userId)
-      .where('transactions.type', 'expense')
-      .whereBetween('transactions.transaction_at', [startDate, endDate])
-      .groupBy('category_id', 'categories.name', 'categories.icon', 'categories.color')
-      .orderBy('total', 'desc');
+    const stats = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          type: 'expense',
+          transactionAt: { $gte: startDate, $lte: endDate },
+          category: { $ne: null },
+        },
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: '_id',
+          as: 'categoryInfo',
+        },
+      },
+      {
+        $unwind: '$categoryInfo',
+      },
+      {
+        $group: {
+          _id: '$category',
+          categoryId: { $first: '$_id' },
+          categoryName: { $first: '$categoryInfo.name' },
+          icon: { $first: '$categoryInfo.icon' },
+          color: { $first: '$categoryInfo.color' },
+          total: { $sum: '$amount' },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { total: -1 },
+      },
+    ]);
+
+    return stats.map((s) => ({
+      categoryId: s._id,
+      categoryName: s.categoryName,
+      icon: s.icon,
+      color: s.color,
+      total: s.total,
+      count: s.count,
+    }));
+  }
+
+  async findByName(userId, name, type = null) {
+    const query = {
+      user: userId,
+      name: { $regex: new RegExp(`^${name}$`, 'i') },
+    };
+    if (type) query.type = type;
+    return Category.findOne(query);
   }
 }
 

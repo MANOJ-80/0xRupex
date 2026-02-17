@@ -1,181 +1,154 @@
-const db = require('../config/database');
+const { Transaction, Account, Category } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 const accountService = require('./account.service');
 const logger = require('../utils/logger');
 
-/**
- * Transaction Service
- */
 class TransactionService {
-  /**
-   * Get transactions with pagination and filters
-   */
   async getTransactions(userId, options = {}) {
     const {
       page = 1,
       limit = 20,
       type,
-      category_id,
-      account_id,
-      start_date,
-      end_date,
+      categoryId,
+      accountId,
+      startDate,
+      endDate,
       search,
-      sort_by = 'transaction_at',
-      sort_order = 'desc',
+      sortBy = 'transactionAt',
+      sortOrder = 'desc',
     } = options;
 
-    let query = db('transactions')
-      .select(
-        'transactions.*',
-        'categories.name as category_name',
-        'categories.icon as category_icon',
-        'categories.color as category_color',
-        'accounts.name as account_name'
-      )
-      .leftJoin('categories', 'transactions.category_id', 'categories.id')
-      .leftJoin('accounts', 'transactions.account_id', 'accounts.id')
-      .where('transactions.user_id', userId);
+    const query = { user: userId };
 
-    // Apply filters
-    if (type) query = query.where('transactions.type', type);
-    if (category_id) query = query.where('transactions.category_id', category_id);
-    if (account_id) query = query.where('transactions.account_id', account_id);
-    if (start_date) query = query.where('transactions.transaction_at', '>=', start_date);
-    if (end_date) query = query.where('transactions.transaction_at', '<=', end_date);
+    if (type) query.type = type;
+    if (categoryId) query.category = categoryId;
+    if (accountId) query.account = accountId;
+    if (startDate || endDate) {
+      query.transactionAt = {};
+      if (startDate) query.transactionAt.$gte = new Date(startDate);
+      if (endDate) query.transactionAt.$lte = new Date(endDate);
+    }
     if (search) {
-      query = query.where((builder) => {
-        builder
-          .where('transactions.description', 'ilike', `%${search}%`)
-          .orWhere('transactions.merchant', 'ilike', `%${search}%`)
-          .orWhere('transactions.notes', 'ilike', `%${search}%`);
-      });
+      query.$or = [
+        { description: { $regex: search, $options: 'i' } },
+        { merchant: { $regex: search, $options: 'i' } },
+        { notes: { $regex: search, $options: 'i' } },
+      ];
     }
 
-    // Get total count - build a separate count query
-    let countQuery = db('transactions')
-      .where('transactions.user_id', userId);
-    if (type) countQuery = countQuery.where('transactions.type', type);
-    if (category_id) countQuery = countQuery.where('transactions.category_id', category_id);
-    if (account_id) countQuery = countQuery.where('transactions.account_id', account_id);
-    if (start_date) countQuery = countQuery.where('transactions.transaction_at', '>=', start_date);
-    if (end_date) countQuery = countQuery.where('transactions.transaction_at', '<=', end_date);
-    if (search) {
-      countQuery = countQuery.where((builder) => {
-        builder
-          .where('transactions.description', 'ilike', `%${search}%`)
-          .orWhere('transactions.merchant', 'ilike', `%${search}%`)
-          .orWhere('transactions.notes', 'ilike', `%${search}%`);
-      });
-    }
-    const [{ count }] = await countQuery.count('* as count');
-    const total = parseInt(count);
+    const total = await Transaction.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+    const skip = (page - 1) * limit;
 
-    // Apply pagination and sorting
-    const offset = (page - 1) * limit;
-    const transactions = await query
-      .orderBy(`transactions.${sort_by}`, sort_order)
-      .limit(limit)
-      .offset(offset);
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const transactions = await Transaction.find(query)
+      .populate('category', 'name icon color')
+      .populate('account', 'name')
+      .sort(sort)
+      .skip(skip)
+      .limit(limit);
+
+    const formattedTransactions = transactions.map((t) => {
+      const obj = t.toSafeObject();
+      if (t.category) {
+        obj.categoryName = t.category.name;
+        obj.categoryIcon = t.category.icon;
+        obj.categoryColor = t.category.color;
+      }
+      if (t.account) {
+        obj.accountName = t.account.name;
+      }
+      return obj;
+    });
 
     return {
-      transactions,
+      transactions: formattedTransactions,
       pagination: {
         page,
         limit,
         total,
-        total_pages: Math.ceil(total / limit),
+        totalPages,
       },
     };
   }
 
-  /**
-   * Get transaction by ID
-   */
   async getTransactionById(transactionId, userId) {
-    const transaction = await db('transactions')
-      .select(
-        'transactions.*',
-        'categories.name as category_name',
-        'categories.icon as category_icon',
-        'accounts.name as account_name'
-      )
-      .leftJoin('categories', 'transactions.category_id', 'categories.id')
-      .leftJoin('accounts', 'transactions.account_id', 'accounts.id')
-      .where('transactions.id', transactionId)
-      .where('transactions.user_id', userId)
-      .first();
+    const transaction = await Transaction.findOne({ _id: transactionId, user: userId })
+      .populate('category', 'name icon color')
+      .populate('account', 'name');
 
     if (!transaction) {
       throw new NotFoundError('Transaction');
     }
 
-    return transaction;
+    const obj = transaction.toSafeObject();
+    if (transaction.category) {
+      obj.categoryName = transaction.category.name;
+      obj.categoryIcon = transaction.category.icon;
+      obj.categoryColor = transaction.category.color;
+    }
+    if (transaction.account) {
+      obj.accountName = transaction.account.name;
+    }
+
+    return obj;
   }
 
-  /**
-   * Create transaction
-   */
   async createTransaction(userId, data) {
-    // Auto-resolve category from categoryName if not provided
-    let categoryId = data.category_id || data.categoryId;
+    let categoryId = data.categoryId || data.category_id;
     if (!categoryId && data.categoryName) {
-      const category = await db('categories')
-        .where({ user_id: userId, name: data.categoryName })
-        .first();
+      const category = await Category.findOne({
+        user: userId,
+        name: { $regex: new RegExp(`^${data.categoryName}$`, 'i') },
+      });
       if (category) {
-        categoryId = category.id;
+        categoryId = category._id;
       }
     }
-    
-    // Auto-resolve account from last4Digits if not provided
-    let accountId = data.account_id || data.accountId;
+
+    let accountId = data.accountId || data.account_id;
     if (!accountId && data.last4Digits) {
-      const account = await db('accounts')
-        .where({ user_id: userId, last_4_digits: data.last4Digits })
-        .first();
+      const account = await Account.findOne({
+        user: userId,
+        last4Digits: data.last4Digits,
+        isActive: true,
+      });
       if (account) {
-        accountId = account.id;
+        accountId = account._id;
       }
     }
-    
-    const [transaction] = await db('transactions')
-      .insert({
-        user_id: userId,
-        account_id: accountId,
-        category_id: categoryId,
-        type: data.type,
-        amount: data.amount,
-        description: data.description,
-        merchant: data.merchant,
-        reference_id: data.reference_id || data.referenceId,
-        transaction_at: data.transaction_at || data.transactionAt || data.transaction_date || new Date(),
-        location: data.location,
-        notes: data.notes,
-        tags: data.tags || [],
-        is_recurring: data.is_recurring || false,
-        source: data.source || 'manual',
-        sms_hash: data.sms_hash || data.smsHash,
-      })
-      .returning('*');
 
-    // Update account balance
+    const transaction = await Transaction.create({
+      user: userId,
+      account: accountId || null,
+      category: categoryId || null,
+      type: data.type,
+      amount: data.amount,
+      description: data.description,
+      merchant: data.merchant,
+      referenceId: data.referenceId || data.reference_id,
+      transactionAt: data.transactionAt || data.transaction_at || data.transactionDate || new Date(),
+      location: data.location,
+      notes: data.notes,
+      tags: data.tags || [],
+      isRecurring: data.isRecurring || false,
+      source: data.source || 'manual',
+      smsHash: data.smsHash || data.sms_hash,
+    });
+
     if (accountId) {
-      await accountService.updateBalance(
-        accountId,
-        userId,
-        data.amount,
-        data.type
-      );
+      await accountService.updateBalance(accountId, userId, data.amount, data.type);
     }
 
-    logger.info(`Transaction created: ${transaction.id} - ${data.type} ${data.amount} | Merchant: ${data.merchant} | Category: ${data.categoryName || 'N/A'}`);
+    logger.info(
+      `Transaction created: ${transaction._id} - ${data.type} ${data.amount} | Merchant: ${data.merchant} | Category: ${data.categoryName || 'N/A'}`
+    );
 
-    return transaction;
+    return this.getTransactionById(transaction._id, userId);
   }
 
-  /**
-   * Sync transactions from Android app
-   */
   async syncTransactions(userId, transactions) {
     const results = {
       created: 0,
@@ -185,11 +158,11 @@ class TransactionService {
 
     for (const tx of transactions) {
       try {
-        // Check for duplicate by SMS hash
-        if (tx.sms_hash) {
-          const existing = await db('transactions')
-            .where({ user_id: userId, sms_hash: tx.sms_hash })
-            .first();
+        if (tx.smsHash || tx.sms_hash) {
+          const existing = await Transaction.findOne({
+            user: userId,
+            smsHash: tx.smsHash || tx.sms_hash,
+          });
 
           if (existing) {
             results.skipped++;
@@ -199,7 +172,8 @@ class TransactionService {
 
         await this.createTransaction(userId, {
           ...tx,
-          source: 'sms',
+          smsHash: tx.smsHash || tx.sms_hash,
+          source: tx.source || 'sms',
         });
         results.created++;
       } catch (error) {
@@ -214,158 +188,188 @@ class TransactionService {
     return results;
   }
 
-  /**
-   * Update transaction
-   */
   async updateTransaction(transactionId, userId, data) {
-    const transaction = await this.getTransactionById(transactionId, userId);
+    const transaction = await Transaction.findOne({ _id: transactionId, user: userId });
 
-    // If categoryName is provided but no category_id, try to find category
-    if (data.categoryName && !data.category_id) {
-      const category = await db('categories')
-        .where('name', 'ilike', data.categoryName)
-        .andWhere(function() {
-          this.where('user_id', userId).orWhereNull('user_id');
-        })
-        .first();
+    if (!transaction) {
+      throw new NotFoundError('Transaction');
+    }
+
+    if (data.categoryName && !data.categoryId && !data.category_id) {
+      const category = await Category.findOne({
+        user: userId,
+        name: { $regex: new RegExp(`^${data.categoryName}$`, 'i') },
+      });
       if (category) {
-        data.category_id = category.id;
+        data.categoryId = category._id;
       }
     }
 
-    // If amount or type changed, need to adjust account balance
-    const amountChanged = data.amount && data.amount !== parseFloat(transaction.amount);
-    const typeChanged = data.type && data.type !== transaction.type;
-    const accountChanged = data.account_id && data.account_id !== transaction.account_id;
+    const amountChanged = data.amount !== undefined && data.amount !== transaction.amount;
+    const typeChanged = data.type !== undefined && data.type !== transaction.type;
+    const accountChanged =
+      (data.accountId || data.account_id) &&
+      (data.accountId || data.account_id) !== transaction.account?.toString();
 
-    if ((amountChanged || typeChanged || accountChanged) && transaction.account_id) {
-      // Reverse original transaction
+    if ((amountChanged || typeChanged || accountChanged) && transaction.account) {
       const reverseType = transaction.type === 'expense' ? 'income' : 'expense';
       await accountService.updateBalance(
-        transaction.account_id,
+        transaction.account,
         userId,
         transaction.amount,
         reverseType
       );
 
-      // Apply new transaction
-      const newAccountId = data.account_id || transaction.account_id;
+      const newAccountId = data.accountId || data.account_id || transaction.account;
       const newType = data.type || transaction.type;
-      const newAmount = data.amount || transaction.amount;
+      const newAmount = data.amount !== undefined ? data.amount : transaction.amount;
       await accountService.updateBalance(newAccountId, userId, newAmount, newType);
     }
 
-    const [updated] = await db('transactions')
-      .where({ id: transactionId, user_id: userId })
-      .update({
-        account_id: data.account_id ?? transaction.account_id,
-        category_id: data.category_id ?? transaction.category_id,
-        type: data.type ?? transaction.type,
-        amount: data.amount ?? transaction.amount,
-        description: data.description ?? transaction.description,
-        merchant: data.merchant ?? transaction.merchant,
-        transaction_at: data.transactionAt ?? data.transaction_at ?? data.transaction_date ?? transaction.transaction_at,
-        notes: data.notes ?? transaction.notes,
-        tags: data.tags ?? transaction.tags,
-        is_recurring: data.is_recurring ?? transaction.is_recurring,
-        updated_at: new Date(),
-      })
-      .returning('*');
+    if (data.accountId !== undefined) transaction.account = data.accountId;
+    if (data.account_id !== undefined) transaction.account = data.account_id;
+    if (data.categoryId !== undefined) transaction.category = data.categoryId;
+    if (data.category_id !== undefined) transaction.category = data.category_id;
+    if (data.type !== undefined) transaction.type = data.type;
+    if (data.amount !== undefined) transaction.amount = data.amount;
+    if (data.description !== undefined) transaction.description = data.description;
+    if (data.merchant !== undefined) transaction.merchant = data.merchant;
+    if (data.transactionAt !== undefined) transaction.transactionAt = data.transactionAt;
+    if (data.transaction_at !== undefined) transaction.transactionAt = data.transaction_at;
+    if (data.transactionDate !== undefined) transaction.transactionAt = data.transactionDate;
+    if (data.notes !== undefined) transaction.notes = data.notes;
+    if (data.tags !== undefined) transaction.tags = data.tags;
 
-    return updated;
+    await transaction.save();
+
+    return this.getTransactionById(transactionId, userId);
   }
 
-  /**
-   * Delete transaction
-   */
   async deleteTransaction(transactionId, userId) {
-    const transaction = await this.getTransactionById(transactionId, userId);
+    const transaction = await Transaction.findOne({ _id: transactionId, user: userId });
 
-    // Reverse account balance
-    if (transaction.account_id) {
+    if (!transaction) {
+      throw new NotFoundError('Transaction');
+    }
+
+    if (transaction.account) {
       const reverseType = transaction.type === 'expense' ? 'income' : 'expense';
       await accountService.updateBalance(
-        transaction.account_id,
+        transaction.account,
         userId,
         transaction.amount,
         reverseType
       );
     }
 
-    await db('transactions').where({ id: transactionId }).del();
+    await Transaction.deleteOne({ _id: transactionId });
   }
 
-  /**
-   * Get monthly summary
-   */
   async getMonthlySummary(userId, year, month) {
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-    const [summary] = await db('transactions')
-      .select(db.raw(`
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expense,
-        COUNT(*) as transaction_count
-      `))
-      .where('user_id', userId)
-      .whereBetween('transaction_at', [startDate, endDate]);
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          transactionAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalIncome: {
+            $sum: { $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0] },
+          },
+          totalExpense: {
+            $sum: { $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0] },
+          },
+          transactionCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const summary = result[0] || { totalIncome: 0, totalExpense: 0, transactionCount: 0 };
 
     return {
       year,
       month,
-      total_income: parseFloat(summary.total_income),
-      total_expense: parseFloat(summary.total_expense),
-      net_savings: parseFloat(summary.total_income) - parseFloat(summary.total_expense),
-      transaction_count: parseInt(summary.transaction_count),
+      totalIncome: summary.totalIncome,
+      totalExpense: summary.totalExpense,
+      netSavings: summary.totalIncome - summary.totalExpense,
+      transactionCount: summary.transactionCount,
     };
   }
 
-  /**
-   * Get analytics data
-   */
   async getAnalytics(userId, startDate, endDate) {
-    // Daily spending trend
-    const dailyTrend = await db('transactions')
-      .select(db.raw(`
-        DATE(transaction_at) as date,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income
-      `))
-      .where('user_id', userId)
-      .whereBetween('transaction_at', [startDate, endDate])
-      .groupBy(db.raw('DATE(transaction_at)'))
-      .orderBy('date');
+    const dailyTrend = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          transactionAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$transactionAt' },
+          },
+          expense: {
+            $sum: { $cond: [{ $eq: ['$type', 'expense'] }, '$amount', 0] },
+          },
+          income: {
+            $sum: { $cond: [{ $eq: ['$type', 'income'] }, '$amount', 0] },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { date: '$_id', expense: 1, income: 1, _id: 0 } },
+    ]);
 
-    // Top merchants
-    const topMerchants = await db('transactions')
-      .select('merchant')
-      .sum('amount as total')
-      .count('id as count')
-      .where('user_id', userId)
-      .where('type', 'expense')
-      .whereNotNull('merchant')
-      .whereBetween('transaction_at', [startDate, endDate])
-      .groupBy('merchant')
-      .orderBy('total', 'desc')
-      .limit(10);
+    const topMerchants = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          type: 'expense',
+          merchant: { $ne: null },
+          transactionAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: '$merchant',
+          total: { $sum: '$amount' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+      { $limit: 10 },
+      { $project: { merchant: '$_id', total: 1, count: 1, _id: 0 } },
+    ]);
 
-    // Spending by day of week
-    const byDayOfWeek = await db('transactions')
-      .select(db.raw(`
-        EXTRACT(DOW FROM transaction_at) as day_of_week,
-        SUM(amount) as total
-      `))
-      .where('user_id', userId)
-      .where('type', 'expense')
-      .whereBetween('transaction_at', [startDate, endDate])
-      .groupBy(db.raw('EXTRACT(DOW FROM transaction_at)'))
-      .orderBy('day_of_week');
+    const byDayOfWeek = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          type: 'expense',
+          transactionAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: { $dayOfWeek: '$transactionAt' },
+          total: { $sum: '$amount' },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { dayOfWeek: { $subtract: ['$_id', 1] }, total: 1, _id: 0 } },
+    ]);
 
     return {
-      daily_trend: dailyTrend,
-      top_merchants: topMerchants,
-      by_day_of_week: byDayOfWeek,
+      dailyTrend,
+      topMerchants,
+      byDayOfWeek,
     };
   }
 }

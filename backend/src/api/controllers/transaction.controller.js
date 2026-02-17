@@ -1,9 +1,6 @@
 const transactionService = require('../../services/transaction.service');
 const response = require('../../utils/response');
 
-/**
- * Get transactions
- */
 const getTransactions = async (req, res, next) => {
   try {
     const result = await transactionService.getTransactions(req.user.id, req.query);
@@ -13,24 +10,15 @@ const getTransactions = async (req, res, next) => {
   }
 };
 
-/**
- * Get transaction by ID
- */
 const getTransaction = async (req, res, next) => {
   try {
-    const transaction = await transactionService.getTransactionById(
-      req.params.id,
-      req.user.id
-    );
+    const transaction = await transactionService.getTransactionById(req.params.id, req.user.id);
     return response.success(res, { transaction });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Create transaction
- */
 const createTransaction = async (req, res, next) => {
   try {
     const transaction = await transactionService.createTransaction(req.user.id, req.body);
@@ -40,9 +28,6 @@ const createTransaction = async (req, res, next) => {
   }
 };
 
-/**
- * Sync transactions from Android app
- */
 const syncTransactions = async (req, res, next) => {
   try {
     const { transactions } = req.body;
@@ -53,9 +38,6 @@ const syncTransactions = async (req, res, next) => {
   }
 };
 
-/**
- * Update transaction
- */
 const updateTransaction = async (req, res, next) => {
   try {
     const transaction = await transactionService.updateTransaction(
@@ -69,9 +51,6 @@ const updateTransaction = async (req, res, next) => {
   }
 };
 
-/**
- * Delete transaction
- */
 const deleteTransaction = async (req, res, next) => {
   try {
     await transactionService.deleteTransaction(req.params.id, req.user.id);
@@ -81,9 +60,6 @@ const deleteTransaction = async (req, res, next) => {
   }
 };
 
-/**
- * Get monthly summary
- */
 const getMonthlySummary = async (req, res, next) => {
   try {
     const now = new Date();
@@ -97,19 +73,16 @@ const getMonthlySummary = async (req, res, next) => {
   }
 };
 
-/**
- * Get analytics
- */
 const getAnalytics = async (req, res, next) => {
   try {
-    const { start_date, end_date } = req.query;
-    const endDate = end_date ? new Date(end_date) : new Date();
-    const startDate = start_date
-      ? new Date(start_date)
-      : new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    const { startDate, endDate } = req.query;
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate
+      ? new Date(startDate)
+      : new Date(end.getFullYear(), end.getMonth(), 1);
 
-    const analytics = await transactionService.getAnalytics(req.user.id, startDate, endDate);
-    return response.success(res, { analytics, start_date: startDate, end_date: endDate });
+    const analytics = await transactionService.getAnalytics(req.user.id, start, end);
+    return response.success(res, { analytics, startDate: start, endDate: end });
   } catch (error) {
     next(error);
   }

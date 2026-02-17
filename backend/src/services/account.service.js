@@ -1,136 +1,96 @@
-const db = require('../config/database');
+const { Account, Transaction } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 
-/**
- * Account Service
- */
 class AccountService {
-  /**
-   * Get all accounts for user
-   */
   async getAccounts(userId) {
-    return db('accounts')
-      .where({ user_id: userId, is_active: true })
-      .orderBy('name');
+    return Account.find({ user: userId, isActive: true }).sort({ name: 1 });
   }
 
-  /**
-   * Get account by ID
-   */
   async getAccountById(accountId, userId) {
-    const account = await db('accounts')
-      .where({ id: accountId, user_id: userId })
-      .first();
-
+    const account = await Account.findOne({ _id: accountId, user: userId });
     if (!account) {
       throw new NotFoundError('Account');
     }
-
     return account;
   }
 
-  /**
-   * Create new account
-   */
   async createAccount(userId, data) {
-    const [account] = await db('accounts')
-      .insert({
-        user_id: userId,
-        name: data.name,
-        type: data.type,
-        institution: data.institution || data.bank_name,
-        account_number: data.account_number,
-        last_4_digits: data.last_4_digits,
-        balance: data.balance || data.current_balance || 0,
-        icon: data.icon || 'wallet',
-        color: data.color || '#6366f1',
-      })
-      .returning('*');
-
+    const account = await Account.create({
+      user: userId,
+      name: data.name,
+      type: data.type,
+      institution: data.institution || data.bankName,
+      accountNumber: data.accountNumber,
+      last4Digits: data.last4Digits || data.last_4_digits,
+      balance: data.balance || data.currentBalance || 0,
+      icon: data.icon || 'wallet',
+      color: data.color || '#6366f1',
+    });
     return account;
   }
 
-  /**
-   * Update account
-   */
   async updateAccount(accountId, userId, data) {
     const account = await this.getAccountById(accountId, userId);
 
-    const [updated] = await db('accounts')
-      .where({ id: accountId, user_id: userId })
-      .update({
-        name: data.name ?? account.name,
-        type: data.type ?? account.type,
-        institution: data.institution ?? data.bank_name ?? account.institution,
-        account_number: data.account_number ?? account.account_number,
-        last_4_digits: data.last_4_digits ?? account.last_4_digits,
-        balance: data.balance ?? data.current_balance ?? account.balance,
-        icon: data.icon ?? account.icon,
-        color: data.color ?? account.color,
-        is_active: data.is_active ?? account.is_active,
-        updated_at: new Date(),
-      })
-      .returning('*');
+    if (data.name !== undefined) account.name = data.name;
+    if (data.type !== undefined) account.type = data.type;
+    if (data.institution !== undefined) account.institution = data.institution;
+    if (data.bankName !== undefined) account.institution = data.bankName;
+    if (data.accountNumber !== undefined) account.accountNumber = data.accountNumber;
+    if (data.last4Digits !== undefined) account.last4Digits = data.last4Digits;
+    if (data.last_4_digits !== undefined) account.last4Digits = data.last_4_digits;
+    if (data.balance !== undefined) account.balance = data.balance;
+    if (data.currentBalance !== undefined) account.balance = data.currentBalance;
+    if (data.icon !== undefined) account.icon = data.icon;
+    if (data.color !== undefined) account.color = data.color;
+    if (data.isActive !== undefined) account.isActive = data.isActive;
 
-    return updated;
+    await account.save();
+    return account;
   }
 
-  /**
-   * Delete account (soft delete)
-   */
   async deleteAccount(accountId, userId) {
     const account = await this.getAccountById(accountId, userId);
 
-    // Check if account has transactions
-    const txCount = await db('transactions')
-      .where({ account_id: accountId })
-      .count('id as count')
-      .first();
+    const txCount = await Transaction.countDocuments({ account: accountId });
 
-    if (parseInt(txCount.count) > 0) {
-      // Soft delete
-      await db('accounts')
-        .where({ id: accountId })
-        .update({ is_active: false });
+    if (txCount > 0) {
+      account.isActive = false;
+      await account.save();
     } else {
-      // Hard delete if no transactions
-      await db('accounts').where({ id: accountId }).del();
+      await Account.deleteOne({ _id: accountId });
     }
   }
 
-  /**
-   * Update account balance
-   */
   async updateBalance(accountId, userId, amount, type) {
     const account = await this.getAccountById(accountId, userId);
-    
-    let newBalance = parseFloat(account.balance);
+
+    let newBalance = account.balance;
     if (type === 'expense') {
       newBalance -= parseFloat(amount);
     } else if (type === 'income') {
       newBalance += parseFloat(amount);
+    } else if (type === 'transfer') {
+      newBalance -= parseFloat(amount);
     }
 
-    await db('accounts')
-      .where({ id: accountId })
-      .update({ 
-        balance: newBalance,
-        updated_at: new Date(),
-      });
+    account.balance = newBalance;
+    await account.save();
 
     return newBalance;
   }
 
-  /**
-   * Get total balance across all accounts
-   */
   async getTotalBalance(userId) {
-    const result = await db('accounts')
-      .where({ user_id: userId, is_active: true })
-      .sum('balance as total')
-      .first();
+    const result = await Account.aggregate([
+      { $match: { user: userId, isActive: true } },
+      { $group: { _id: null, total: { $sum: '$balance' } } },
+    ]);
 
-    return parseFloat(result.total || 0);
+    return result.length > 0 ? result[0].total : 0;
+  }
+
+  async getByLast4Digits(userId, last4Digits) {
+    return Account.findOne({ user: userId, last4Digits, isActive: true });
   }
 }
 

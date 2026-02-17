@@ -1,5 +1,12 @@
-// Vercel Serverless Function Entry Point
-const app = require('../src/app');
+const { app, connectDB } = require('../src/app');
 
-// Export the Express app as a Vercel serverless function
-module.exports = app;
+let isConnected = false;
+
+module.exports = async (req, res) => {
+  if (!isConnected) {
+    await connectDB();
+    isConnected = true;
+  }
+
+  return app(req, res);
+};

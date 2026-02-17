@@ -1,9 +1,7 @@
 const { validationResult, body, param, query } = require('express-validator');
 const { ValidationError } = require('../../utils/errors');
+const mongoose = require('mongoose');
 
-/**
- * Validate request and throw if errors
- */
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -16,11 +14,11 @@ const validate = (req, res, next) => {
   next();
 };
 
-/**
- * Common validators
- */
+const isValidObjectId = (value) => {
+  return mongoose.Types.ObjectId.isValid(value);
+};
+
 const validators = {
-  // Auth
   register: [
     body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
     body('password')
@@ -45,19 +43,17 @@ const validators = {
     validate,
   ],
 
-  // Accounts
   createAccount: [
     body('name').trim().notEmpty().withMessage('Account name required'),
     body('type')
-      .isIn(['savings', 'current', 'credit_card', 'wallet', 'cash', 'investment'])
+      .isIn(['bank', 'wallet', 'cash', 'credit_card'])
       .withMessage('Invalid account type'),
-    body('bank_name').optional().trim(),
-    body('account_number').optional().trim(),
-    body('current_balance').optional().isNumeric().withMessage('Balance must be numeric'),
+    body('bankName').optional().trim(),
+    body('accountNumber').optional().trim(),
+    body('currentBalance').optional().isNumeric().withMessage('Balance must be numeric'),
     validate,
   ],
 
-  // Categories
   createCategory: [
     body('name').trim().notEmpty().withMessage('Category name required'),
     body('type').isIn(['expense', 'income']).withMessage('Type must be expense or income'),
@@ -66,15 +62,20 @@ const validators = {
     validate,
   ],
 
-  // Transactions
   createTransaction: [
     body('type').isIn(['expense', 'income', 'transfer']).withMessage('Invalid transaction type'),
     body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be positive'),
     body('description').optional().trim(),
     body('merchant').optional().trim(),
-    body('account_id').optional().isUUID().withMessage('Invalid account ID'),
-    body('category_id').optional().isUUID().withMessage('Invalid category ID'),
-    body('transaction_date').optional().isISO8601().withMessage('Invalid date format'),
+    body('accountId')
+      .optional()
+      .custom((value) => isValidObjectId(value))
+      .withMessage('Invalid account ID'),
+    body('categoryId')
+      .optional()
+      .custom((value) => isValidObjectId(value))
+      .withMessage('Invalid category ID'),
+    body('transactionDate').optional().isISO8601().withMessage('Invalid date format'),
     validate,
   ],
 
@@ -87,9 +88,10 @@ const validators = {
     validate,
   ],
 
-  // Common
-  uuidParam: [
-    param('id').isUUID().withMessage('Invalid ID format'),
+  objectIdParam: [
+    param('id')
+      .custom((value) => isValidObjectId(value))
+      .withMessage('Invalid ID format'),
     validate,
   ],
 
@@ -100,8 +102,8 @@ const validators = {
   ],
 
   dateRange: [
-    query('start_date').optional().isISO8601().withMessage('Invalid start date'),
-    query('end_date').optional().isISO8601().withMessage('Invalid end date'),
+    query('startDate').optional().isISO8601().withMessage('Invalid start date'),
+    query('endDate').optional().isISO8601().withMessage('Invalid end date'),
     validate,
   ],
 };
@@ -109,4 +111,5 @@ const validators = {
 module.exports = {
   validate,
   validators,
+  isValidObjectId,
 };

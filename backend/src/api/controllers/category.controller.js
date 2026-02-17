@@ -1,62 +1,44 @@
 const categoryService = require('../../services/category.service');
 const response = require('../../utils/response');
 
-/**
- * Get all categories
- */
 const getCategories = async (req, res, next) => {
   try {
     const { type } = req.query;
     const categories = await categoryService.getCategories(req.user.id, type);
-    return response.success(res, { categories });
+    const categoriesJson = categories.map((c) => c.toSafeObject());
+    return response.success(res, { categories: categoriesJson });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Get category by ID
- */
 const getCategory = async (req, res, next) => {
   try {
     const category = await categoryService.getCategoryById(req.params.id, req.user.id);
-    return response.success(res, { category });
+    return response.success(res, { category: category.toSafeObject() });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Create category
- */
 const createCategory = async (req, res, next) => {
   try {
     const category = await categoryService.createCategory(req.user.id, req.body);
-    return response.success(res, { category }, 'Category created', 201);
+    return response.success(res, { category: category.toSafeObject() }, 'Category created', 201);
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Update category
- */
 const updateCategory = async (req, res, next) => {
   try {
-    const category = await categoryService.updateCategory(
-      req.params.id,
-      req.user.id,
-      req.body
-    );
-    return response.success(res, { category }, 'Category updated');
+    const category = await categoryService.updateCategory(req.params.id, req.user.id, req.body);
+    return response.success(res, { category: category.toSafeObject() }, 'Category updated');
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Delete category
- */
 const deleteCategory = async (req, res, next) => {
   try {
     await categoryService.deleteCategory(req.params.id, req.user.id);
@@ -66,19 +48,14 @@ const deleteCategory = async (req, res, next) => {
   }
 };
 
-/**
- * Get category statistics
- */
 const getCategoryStats = async (req, res, next) => {
   try {
-    const { start_date, end_date } = req.query;
-    const endDate = end_date ? new Date(end_date) : new Date();
-    const startDate = start_date 
-      ? new Date(start_date)
-      : new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+    const { startDate, endDate } = req.query;
+    const end = endDate ? new Date(endDate) : new Date();
+    const start = startDate ? new Date(startDate) : new Date(end.getFullYear(), end.getMonth(), 1);
 
-    const stats = await categoryService.getCategoryStats(req.user.id, startDate, endDate);
-    return response.success(res, { stats, start_date: startDate, end_date: endDate });
+    const stats = await categoryService.getCategoryStats(req.user.id, start, end);
+    return response.success(res, { stats, startDate: start, endDate: end });
   } catch (error) {
     next(error);
   }

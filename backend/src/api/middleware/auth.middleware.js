@@ -1,14 +1,11 @@
 const jwtUtils = require('../../utils/jwt');
 const { AuthenticationError } = require('../../utils/errors');
-const db = require('../../config/database');
+const { User } = require('../../models');
 
-/**
- * Authenticate JWT token
- */
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new AuthenticationError('No token provided');
     }
@@ -20,42 +17,40 @@ const authenticate = async (req, res, next) => {
       throw new AuthenticationError('Invalid token');
     }
 
-    // Check if user exists
-    const user = await db('users')
-      .where({ id: decoded.userId })
-      .select('id', 'email', 'name')
-      .first();
+    const user = await User.findById(decoded.userId).select('id email name');
 
     if (!user) {
       throw new AuthenticationError('User not found');
     }
 
-    req.user = user;
+    req.user = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+    };
     next();
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Optional authentication - doesn't fail if no token
- */
 const optionalAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const decoded = jwtUtils.verifyToken(token);
 
       if (decoded && decoded.type === 'access') {
-        const user = await db('users')
-          .where({ id: decoded.userId })
-          .select('id', 'email', 'name')
-          .first();
+        const user = await User.findById(decoded.userId).select('id email name');
 
         if (user) {
-          req.user = user;
+          req.user = {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+          };
         }
       }
     }

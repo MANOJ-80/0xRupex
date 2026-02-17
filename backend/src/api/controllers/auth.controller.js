@@ -2,15 +2,11 @@ const authService = require('../../services/auth.service');
 const categoryService = require('../../services/category.service');
 const response = require('../../utils/response');
 
-/**
- * Register new user
- */
 const register = async (req, res, next) => {
   try {
     const { email, password, name } = req.body;
     const result = await authService.register(email, password, name);
 
-    // Initialize default categories
     await categoryService.initializeDefaults(result.user.id);
 
     return response.success(res, result, 'Registration successful', 201);
@@ -19,9 +15,6 @@ const register = async (req, res, next) => {
   }
 };
 
-/**
- * Login
- */
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -32,9 +25,6 @@ const login = async (req, res, next) => {
   }
 };
 
-/**
- * Refresh tokens
- */
 const refresh = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
@@ -45,9 +35,6 @@ const refresh = async (req, res, next) => {
   }
 };
 
-/**
- * Logout
- */
 const logout = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
@@ -60,9 +47,6 @@ const logout = async (req, res, next) => {
   }
 };
 
-/**
- * Logout all sessions
- */
 const logoutAll = async (req, res, next) => {
   try {
     await authService.logoutAll(req.user.id);
@@ -72,9 +56,6 @@ const logoutAll = async (req, res, next) => {
   }
 };
 
-/**
- * Get current user
- */
 const me = async (req, res, next) => {
   try {
     const user = await authService.getUserById(req.user.id);
@@ -84,9 +65,6 @@ const me = async (req, res, next) => {
   }
 };
 
-/**
- * Change password
- */
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;

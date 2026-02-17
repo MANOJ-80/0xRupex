@@ -3,52 +3,76 @@ package com.rupex.app.data.remote.model;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
-/**
- * Transaction DTO from server
- */
 public class TransactionDto {
-    
+
     @SerializedName("id")
     private String id;
-    
+
+    @SerializedName("userId")
+    private String userId;
+
     @SerializedName("accountId")
     private String accountId;
-    
+
     @SerializedName("categoryId")
     private String categoryId;
-    
+
     @SerializedName("type")
     private String type;
-    
+
     @SerializedName("amount")
     private double amount;
-    
+
     @SerializedName("description")
     private String description;
-    
+
     @SerializedName("merchant")
     private String merchant;
-    
+
     @SerializedName("referenceId")
     private String referenceId;
-    
+
     @SerializedName("source")
     private String source;
-    
+
     @SerializedName("transactionAt")
     private String transactionAt;
-    
-    @SerializedName("createdAt")
-    private String createdAt;
-    
-    @SerializedName("category_name")
-    private String categoryName;
-    
+
+    @SerializedName("location")
+    private String location;
+
+    @SerializedName("tags")
+    private List<String> tags;
+
     @SerializedName("notes")
     private String notes;
 
-    // Getters
+    @SerializedName("isRecurring")
+    private boolean isRecurring;
+
+    @SerializedName("smsHash")
+    private String smsHash;
+
+    @SerializedName("createdAt")
+    private String createdAt;
+
+    @SerializedName("updatedAt")
+    private String updatedAt;
+
+    @SerializedName("categoryName")
+    private String categoryName;
+
+    @SerializedName("categoryIcon")
+    private String categoryIcon;
+
+    @SerializedName("categoryColor")
+    private String categoryColor;
+
+    @SerializedName("accountName")
+    private String accountName;
+
     public String getId() { return id; }
+    public String getUserId() { return userId; }
     public String getAccountId() { return accountId; }
     public String getCategoryId() { return categoryId; }
     public String getType() { return type; }
@@ -58,40 +82,15 @@ public class TransactionDto {
     public String getReferenceId() { return referenceId; }
     public String getSource() { return source; }
     public String getTransactionAt() { return transactionAt; }
-    public String getCreatedAt() { return createdAt; }
-    public String getCategoryName() { return categoryName; }
+    public String getLocation() { return location; }
+    public List<String> getTags() { return tags; }
     public String getNotes() { return notes; }
-
-    /**
-     * Paginated response wrapper
-     */
-    public static class PaginatedResponse {
-        @SerializedName("transactions")
-        private List<TransactionDto> transactions;
-        
-        @SerializedName("pagination")
-        private Pagination pagination;
-
-        public List<TransactionDto> getTransactions() { return transactions; }
-        public Pagination getPagination() { return pagination; }
-    }
-
-    public static class Pagination {
-        @SerializedName("page")
-        private int page;
-        
-        @SerializedName("limit")
-        private int limit;
-        
-        @SerializedName("total")
-        private int total;
-        
-        @SerializedName("totalPages")
-        private int totalPages;
-
-        public int getPage() { return page; }
-        public int getLimit() { return limit; }
-        public int getTotal() { return total; }
-        public int getTotalPages() { return totalPages; }
-    }
+    public boolean isRecurring() { return isRecurring; }
+    public String getSmsHash() { return smsHash; }
+    public String getCreatedAt() { return createdAt; }
+    public String getUpdatedAt() { return updatedAt; }
+    public String getCategoryName() { return categoryName; }
+    public String getCategoryIcon() { return categoryIcon; }
+    public String getCategoryColor() { return categoryColor; }
+    public String getAccountName() { return accountName; }
 }
