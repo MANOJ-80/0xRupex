@@ -90,12 +90,13 @@ public class FinanceRepository {
         MutableLiveData<Resource<List<CategoryDto>>> result = new MutableLiveData<>();
         result.setValue(Resource.loading());
 
-        api.getCategories().enqueue(new Callback<RupexApi.CategoriesResponse>() {
+        api.getCategories(null).enqueue(new Callback<RupexApi.CategoriesResponse>() {
             @Override
             public void onResponse(Call<RupexApi.CategoriesResponse> call,
                                  Response<RupexApi.CategoriesResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().success) {
-                    result.setValue(Resource.success(response.body().categories));
+                    List<CategoryDto> dtos = response.body().categories;
+                    result.setValue(Resource.success(dtos != null ? dtos : new ArrayList<>()));
                 } else {
                     result.setValue(Resource.error("Failed to load categories"));
                 }
@@ -115,12 +116,13 @@ public class FinanceRepository {
         MutableLiveData<Resource<List<CategoryDto>>> result = new MutableLiveData<>();
         result.setValue(Resource.loading());
 
-        api.getCategoriesByType(type).enqueue(new Callback<RupexApi.CategoriesResponse>() {
+        api.getCategories(type).enqueue(new Callback<RupexApi.CategoriesResponse>() {
             @Override
             public void onResponse(Call<RupexApi.CategoriesResponse> call,
                                  Response<RupexApi.CategoriesResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().success) {
-                    result.setValue(Resource.success(response.body().categories));
+                    List<CategoryDto> dtos = response.body().categories;
+                    result.setValue(Resource.success(dtos != null ? dtos : new ArrayList<>()));
                 } else {
                     result.setValue(Resource.error("Failed to load categories"));
                 }

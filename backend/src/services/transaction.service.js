@@ -3,6 +3,11 @@ const { NotFoundError, ValidationError } = require('../utils/errors');
 const accountService = require('./account.service');
 const logger = require('../utils/logger');
 
+const escapeRegex = (str) => {
+  if (!str) return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 class TransactionService {
   async getTransactions(userId, options = {}) {
     const {
@@ -29,10 +34,11 @@ class TransactionService {
       if (endDate) query.transactionAt.$lte = new Date(endDate);
     }
     if (search) {
+      const escapedSearch = escapeRegex(search);
       query.$or = [
-        { description: { $regex: search, $options: 'i' } },
-        { merchant: { $regex: search, $options: 'i' } },
-        { notes: { $regex: search, $options: 'i' } },
+        { description: { $regex: escapedSearch, $options: 'i' } },
+        { merchant: { $regex: escapedSearch, $options: 'i' } },
+        { notes: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
 
@@ -99,9 +105,10 @@ class TransactionService {
   async createTransaction(userId, data) {
     let categoryId = data.categoryId || data.category_id;
     if (!categoryId && data.categoryName) {
+      const escapedName = escapeRegex(data.categoryName);
       const category = await Category.findOne({
         user: userId,
-        name: { $regex: new RegExp(`^${data.categoryName}$`, 'i') },
+        name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
       });
       if (category) {
         categoryId = category._id;
@@ -126,7 +133,7 @@ class TransactionService {
       category: categoryId || null,
       type: data.type,
       amount: data.amount,
-      description: data.description,
+      description: data.description || data.merchant,
       merchant: data.merchant,
       referenceId: data.referenceId || data.reference_id,
       transactionAt: data.transactionAt || data.transaction_at || data.transactionDate || new Date(),
@@ -143,13 +150,17 @@ class TransactionService {
     }
 
     logger.info(
-      `Transaction created: ${transaction._id} - ${data.type} ${data.amount} | Merchant: ${data.merchant} | Category: ${data.categoryName || 'N/A'}`
+      `Transaction created: ${transaction._id} - ${data.type} ${data.amount} | Merchant: ${data.merchant || 'N/A'} | Category: ${data.categoryName || 'N/A'}`
     );
 
     return this.getTransactionById(transaction._id, userId);
   }
 
   async syncTransactions(userId, transactions) {
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return { created: 0, skipped: 0, errors: [] };
+    }
+
     const results = {
       created: 0,
       skipped: 0,
@@ -196,9 +207,10 @@ class TransactionService {
     }
 
     if (data.categoryName && !data.categoryId && !data.category_id) {
+      const escapedName = escapeRegex(data.categoryName);
       const category = await Category.findOne({
         user: userId,
-        name: { $regex: new RegExp(`^${data.categoryName}$`, 'i') },
+        name: { $regex: new RegExp(`^${escapedName}$`, 'i') },
       });
       if (category) {
         data.categoryId = category._id;
@@ -295,10 +307,10 @@ class TransactionService {
     return {
       year,
       month,
-      totalIncome: summary.totalIncome,
-      totalExpense: summary.totalExpense,
-      netSavings: summary.totalIncome - summary.totalExpense,
-      transactionCount: summary.transactionCount,
+      totalIncome: summary.totalIncome || 0,
+      totalExpense: summary.totalExpense || 0,
+      netSavings: (summary.totalIncome || 0) - (summary.totalExpense || 0),
+      transactionCount: summary.transactionCount || 0,
     };
   }
 

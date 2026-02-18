@@ -12,7 +12,7 @@ router.get('/analytics', validators.dateRange, transactionController.getAnalytic
 router.get('/:id', validators.objectIdParam, transactionController.getTransaction);
 router.post('/', validators.createTransaction, transactionController.createTransaction);
 router.post('/sync', validators.syncTransactions, transactionController.syncTransactions);
-router.put('/:id', validators.objectIdParam, transactionController.updateTransaction);
+router.put('/:id', validators.objectIdParam, validators.updateTransaction, transactionController.updateTransaction);
 router.delete('/:id', validators.objectIdParam, transactionController.deleteTransaction);
 
 module.exports = router;

@@ -43,14 +43,38 @@ const validators = {
     validate,
   ],
 
+  changePassword: [
+    body('currentPassword').notEmpty().withMessage('Current password required'),
+    body('newPassword')
+      .isLength({ min: 8 })
+      .withMessage('Password must be at least 8 characters')
+      .matches(/[A-Z]/)
+      .withMessage('Password must contain uppercase letter')
+      .matches(/[0-9]/)
+      .withMessage('Password must contain number'),
+    validate,
+  ],
+
   createAccount: [
     body('name').trim().notEmpty().withMessage('Account name required'),
     body('type')
       .isIn(['bank', 'wallet', 'cash', 'credit_card'])
       .withMessage('Invalid account type'),
     body('bankName').optional().trim(),
+    body('institution').optional().trim(),
     body('accountNumber').optional().trim(),
-    body('currentBalance').optional().isNumeric().withMessage('Balance must be numeric'),
+    body('balance').optional().isFloat({ min: 0 }).withMessage('Balance must be non-negative'),
+    validate,
+  ],
+
+  updateAccount: [
+    body('name').optional().trim().notEmpty().withMessage('Account name cannot be empty'),
+    body('type').optional().isIn(['bank', 'wallet', 'cash', 'credit_card']).withMessage('Invalid account type'),
+    body('institution').optional().trim(),
+    body('accountNumber').optional().trim(),
+    body('last4Digits').optional().trim().isLength({ max: 4 }).withMessage('Last 4 digits max 4 chars'),
+    body('balance').optional().isFloat({ min: 0 }).withMessage('Balance must be non-negative'),
+    body('color').optional().isHexColor().withMessage('Invalid color format'),
     validate,
   ],
 
@@ -62,36 +86,47 @@ const validators = {
     validate,
   ],
 
+  updateCategory: [
+    body('name').optional().trim().notEmpty().withMessage('Category name cannot be empty'),
+    body('icon').optional().trim(),
+    body('color').optional().isHexColor().withMessage('Invalid color format'),
+    validate,
+  ],
+
   createTransaction: [
     body('type').isIn(['expense', 'income', 'transfer']).withMessage('Invalid transaction type'),
     body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be positive'),
     body('description').optional().trim(),
     body('merchant').optional().trim(),
-    body('accountId')
-      .optional()
-      .custom((value) => isValidObjectId(value))
-      .withMessage('Invalid account ID'),
-    body('categoryId')
-      .optional()
-      .custom((value) => isValidObjectId(value))
-      .withMessage('Invalid category ID'),
+    body('accountId').optional().custom(isValidObjectId).withMessage('Invalid account ID'),
+    body('categoryId').optional().custom(isValidObjectId).withMessage('Invalid category ID'),
+    body('categoryName').optional().trim(),
+    body('transactionDate').optional().isISO8601().withMessage('Invalid date format'),
+    validate,
+  ],
+
+  updateTransaction: [
+    body('type').optional().isIn(['expense', 'income', 'transfer']).withMessage('Invalid transaction type'),
+    body('amount').optional().isFloat({ min: 0.01 }).withMessage('Amount must be positive'),
+    body('description').optional().trim(),
+    body('merchant').optional().trim(),
+    body('accountId').optional().custom(isValidObjectId).withMessage('Invalid account ID'),
+    body('categoryId').optional().custom(isValidObjectId).withMessage('Invalid category ID'),
+    body('categoryName').optional().trim(),
+    body('notes').optional().trim(),
     body('transactionDate').optional().isISO8601().withMessage('Invalid date format'),
     validate,
   ],
 
   syncTransactions: [
-    body('transactions').isArray().withMessage('Transactions must be an array'),
-    body('transactions.*.type')
-      .isIn(['expense', 'income', 'transfer'])
-      .withMessage('Invalid transaction type'),
+    body('transactions').isArray({ min: 1 }).withMessage('Transactions must be a non-empty array'),
+    body('transactions.*.type').isIn(['expense', 'income', 'transfer']).withMessage('Invalid transaction type'),
     body('transactions.*.amount').isFloat({ min: 0.01 }).withMessage('Amount must be positive'),
     validate,
   ],
 
   objectIdParam: [
-    param('id')
-      .custom((value) => isValidObjectId(value))
-      .withMessage('Invalid ID format'),
+    param('id').custom(isValidObjectId).withMessage('Invalid ID format'),
     validate,
   ],
 

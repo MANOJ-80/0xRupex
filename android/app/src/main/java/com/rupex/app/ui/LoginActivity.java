@@ -9,7 +9,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.rupex.app.databinding.ActivityLoginBinding;
 import com.rupex.app.data.remote.ApiClient;
-import com.rupex.app.data.remote.model.ApiResponse;
 import com.rupex.app.data.remote.model.AuthResponse;
 import com.rupex.app.data.remote.model.LoginRequest;
 import com.rupex.app.data.remote.model.RegisterRequest;
@@ -94,16 +93,16 @@ public class LoginActivity extends AppCompatActivity {
 
         ApiClient.getInstance(this).getApi()
                 .login(new LoginRequest(email, password))
-                .enqueue(new Callback<ApiResponse<AuthResponse>>() {
+                .enqueue(new Callback<AuthResponse>() {
                     @Override
-                    public void onResponse(Call<ApiResponse<AuthResponse>> call,
-                                         Response<ApiResponse<AuthResponse>> response) {
+                    public void onResponse(Call<AuthResponse> call,
+                                         Response<AuthResponse> response) {
                         showLoading(false);
                         handleAuthResponse(response);
                     }
 
                     @Override
-                    public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
+                    public void onFailure(Call<AuthResponse> call, Throwable t) {
                         showLoading(false);
                         Toast.makeText(LoginActivity.this,
                                 "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
@@ -116,16 +115,16 @@ public class LoginActivity extends AppCompatActivity {
 
         ApiClient.getInstance(this).getApi()
                 .register(new RegisterRequest(email, password, name))
-                .enqueue(new Callback<ApiResponse<AuthResponse>>() {
+                .enqueue(new Callback<AuthResponse>() {
                     @Override
-                    public void onResponse(Call<ApiResponse<AuthResponse>> call,
-                                         Response<ApiResponse<AuthResponse>> response) {
+                    public void onResponse(Call<AuthResponse> call,
+                                         Response<AuthResponse> response) {
                         showLoading(false);
                         handleAuthResponse(response);
                     }
 
                     @Override
-                    public void onFailure(Call<ApiResponse<AuthResponse>> call, Throwable t) {
+                    public void onFailure(Call<AuthResponse> call, Throwable t) {
                         showLoading(false);
                         Toast.makeText(LoginActivity.this,
                                 "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
@@ -133,9 +132,9 @@ public class LoginActivity extends AppCompatActivity {
                 });
     }
 
-    private void handleAuthResponse(Response<ApiResponse<AuthResponse>> response) {
+    private void handleAuthResponse(Response<AuthResponse> response) {
         if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-            AuthResponse auth = response.body().getData();
+            AuthResponse auth = response.body();
 
             tokenManager.saveTokens(auth.getAccessToken(), auth.getRefreshToken());
             tokenManager.saveUser(

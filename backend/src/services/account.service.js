@@ -1,5 +1,6 @@
 const { Account, Transaction } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
+const mongoose = require('mongoose');
 
 class AccountService {
   async getAccounts(userId) {
@@ -63,21 +64,31 @@ class AccountService {
   }
 
   async updateBalance(accountId, userId, amount, type) {
-    const account = await this.getAccountById(accountId, userId);
-
-    let newBalance = account.balance;
-    if (type === 'expense') {
-      newBalance -= parseFloat(amount);
-    } else if (type === 'income') {
-      newBalance += parseFloat(amount);
-    } else if (type === 'transfer') {
-      newBalance -= parseFloat(amount);
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount < 0) {
+      throw new ValidationError('Invalid amount');
     }
 
-    account.balance = newBalance;
-    await account.save();
+    let updateOp = {};
+    if (type === 'expense' || type === 'transfer') {
+      updateOp = { $inc: { balance: -numAmount } };
+    } else if (type === 'income') {
+      updateOp = { $inc: { balance: numAmount } };
+    } else {
+      return null;
+    }
 
-    return newBalance;
+    const account = await Account.findOneAndUpdate(
+      { _id: accountId, user: userId },
+      updateOp,
+      { new: true }
+    );
+
+    if (!account) {
+      throw new NotFoundError('Account');
+    }
+
+    return account.balance;
   }
 
   async getTotalBalance(userId) {

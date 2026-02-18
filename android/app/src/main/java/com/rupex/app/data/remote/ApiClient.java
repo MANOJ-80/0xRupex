@@ -147,11 +147,11 @@ public class ApiClient {
         }
 
         try {
-            retrofit2.Response<com.rupex.app.data.remote.model.ApiResponse<com.rupex.app.data.remote.model.AuthResponse>> response = 
+            retrofit2.Response<com.rupex.app.data.remote.model.AuthResponse> response =
                     api.refreshToken(new RupexApi.RefreshTokenRequest(refreshToken)).execute();
-            
+
             if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                com.rupex.app.data.remote.model.AuthResponse auth = response.body().getData();
+                com.rupex.app.data.remote.model.AuthResponse auth = response.body();
                 tokenManager.saveTokens(auth.getAccessToken(), auth.getRefreshToken());
                 Log.i(TAG, "Token refreshed successfully");
                 return true;

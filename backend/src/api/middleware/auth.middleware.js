@@ -17,10 +17,14 @@ const authenticate = async (req, res, next) => {
       throw new AuthenticationError('Invalid token');
     }
 
-    const user = await User.findById(decoded.userId).select('id email name');
+    const user = await User.findById(decoded.userId).select('id email name isActive');
 
     if (!user) {
       throw new AuthenticationError('User not found');
+    }
+
+    if (!user.isActive) {
+      throw new AuthenticationError('User account is disabled');
     }
 
     req.user = {
@@ -43,9 +47,9 @@ const optionalAuth = async (req, res, next) => {
       const decoded = jwtUtils.verifyToken(token);
 
       if (decoded && decoded.type === 'access') {
-        const user = await User.findById(decoded.userId).select('id email name');
+        const user = await User.findById(decoded.userId).select('id email name isActive');
 
-        if (user) {
+        if (user && user.isActive) {
           req.user = {
             id: user._id.toString(),
             email: user.email,

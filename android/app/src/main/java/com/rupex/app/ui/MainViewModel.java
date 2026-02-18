@@ -552,75 +552,57 @@ public class MainViewModel extends AndroidViewModel {
     }
     
     public void loadCategories() {
-        api.getCategories().enqueue(new Callback<ApiResponse<List<CategoryDto>>>() {
+        api.getCategories(null).enqueue(new Callback<RupexApi.CategoriesResponse>() {
             @Override
-            public void onResponse(Call<ApiResponse<List<CategoryDto>>> call,
-                                 Response<ApiResponse<List<CategoryDto>>> response) {
+            public void onResponse(Call<RupexApi.CategoriesResponse> call,
+                                 Response<RupexApi.CategoriesResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().success) {
-                    List<CategoryDto> dtos = response.body().data;
+                    List<CategoryDto> dtos = response.body().categories;
+                    if (dtos == null) dtos = new ArrayList<>();
                     List<Category> cats = new ArrayList<>();
                     for (CategoryDto dto : dtos) {
                         cats.add(new Category(dto.id, dto.name, dto.type, dto.icon, dto.color));
                     }
                     categories.postValue(cats);
                 } else {
-                    // Use default categories if API fails
                     categories.postValue(getDefaultCategories());
                 }
             }
-            
+
             @Override
-            public void onFailure(Call<ApiResponse<List<CategoryDto>>> call, Throwable t) {
-                // Use default categories on network failure
+            public void onFailure(Call<RupexApi.CategoriesResponse> call, Throwable t) {
                 categories.postValue(getDefaultCategories());
             }
         });
     }
-    
-    /**
-     * Returns default categories when API is unavailable
-     */
+
     private List<Category> getDefaultCategories() {
         List<Category> defaults = new ArrayList<>();
-        // Expense categories
-        defaults.add(new Category(1, "Food & Dining", "expense", "🍕", "#FF5722"));
-        defaults.add(new Category(2, "Shopping", "expense", "🛍️", "#E91E63"));
-        defaults.add(new Category(3, "Transportation", "expense", "🚗", "#2196F3"));
-        defaults.add(new Category(4, "Bills & Utilities", "expense", "📄", "#FF9800"));
-        defaults.add(new Category(5, "Entertainment", "expense", "🎬", "#9C27B0"));
-        defaults.add(new Category(6, "Health", "expense", "💊", "#00BCD4"));
-        defaults.add(new Category(7, "Education", "expense", "📚", "#3F51B5"));
-        defaults.add(new Category(8, "Groceries", "expense", "🛒", "#4CAF50"));
-        defaults.add(new Category(9, "Personal Care", "expense", "💅", "#F44336"));
-        defaults.add(new Category(10, "Travel", "expense", "✈️", "#009688"));
-        defaults.add(new Category(11, "Other", "expense", "📦", "#607D8B"));
-        // Income categories
-        defaults.add(new Category(12, "Salary", "income", "💰", "#4CAF50"));
-        defaults.add(new Category(13, "Freelance", "income", "💼", "#8BC34A"));
-        defaults.add(new Category(14, "Investment", "income", "📈", "#03A9F4"));
-        defaults.add(new Category(15, "Refund", "income", "↩️", "#00BCD4"));
-        defaults.add(new Category(16, "Gift", "income", "🎁", "#E91E63"));
-        defaults.add(new Category(17, "Other Income", "income", "💵", "#607D8B"));
+        defaults.add(new Category("1", "Food & Dining", "expense", "restaurant", "#EF4444"));
+        defaults.add(new Category("2", "Transport", "expense", "directions_car", "#F59E0B"));
+        defaults.add(new Category("3", "Shopping", "expense", "shopping_bag", "#8B5CF6"));
+        defaults.add(new Category("4", "Bills & Utilities", "expense", "receipt", "#3B82F6"));
+        defaults.add(new Category("5", "Entertainment", "expense", "movie", "#EC4899"));
+        defaults.add(new Category("6", "Health", "expense", "local_hospital", "#10B981"));
+        defaults.add(new Category("7", "Other", "expense", "more_horiz", "#6B7280"));
+        defaults.add(new Category("8", "Salary", "income", "work", "#10B981"));
+        defaults.add(new Category("9", "Freelance", "income", "laptop", "#3B82F6"));
+        defaults.add(new Category("10", "Other Income", "income", "attach_money", "#6B7280"));
         return defaults;
     }
-    
-    // ==================== ACCOUNTS ====================
-    
-    public LiveData<List<Account>> getAccounts() {
-        return accounts;
-    }
-    
+
     public void loadAccounts() {
-        api.getAccounts().enqueue(new Callback<ApiResponse<List<AccountDto>>>() {
+        api.getAccounts().enqueue(new Callback<RupexApi.AccountsResponse>() {
             @Override
-            public void onResponse(Call<ApiResponse<List<AccountDto>>> call,
-                                 Response<ApiResponse<List<AccountDto>>> response) {
+            public void onResponse(Call<RupexApi.AccountsResponse> call,
+                                 Response<RupexApi.AccountsResponse> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().success) {
-                    List<AccountDto> dtos = response.body().data;
+                    List<AccountDto> dtos = response.body().accounts;
+                    if (dtos == null) dtos = new ArrayList<>();
                     List<Account> accs = new ArrayList<>();
                     for (AccountDto dto : dtos) {
-                        accs.add(new Account(dto.id, dto.name, dto.bankName, 
-                                dto.accountNumber, dto.accountType, dto.balance));
+                        accs.add(new Account(dto.id, dto.name, dto.institution,
+                                dto.accountNumber, dto.type, dto.balance));
                     }
                     if (accs.isEmpty()) {
                         accs = getDefaultAccounts();
@@ -630,34 +612,30 @@ public class MainViewModel extends AndroidViewModel {
                     accounts.postValue(getDefaultAccounts());
                 }
             }
-            
+
             @Override
-            public void onFailure(Call<ApiResponse<List<AccountDto>>> call, Throwable t) {
+            public void onFailure(Call<RupexApi.AccountsResponse> call, Throwable t) {
                 accounts.postValue(getDefaultAccounts());
             }
         });
     }
-    
-    /**
-     * Returns default accounts when API is unavailable
-     */
+
     private List<Account> getDefaultAccounts() {
         List<Account> defaults = new ArrayList<>();
-        defaults.add(new Account(1, "Cash", "Cash", "0000", "cash", 0.0));
-        defaults.add(new Account(2, "Bank Account", "Bank", "XXXX", "savings", 0.0));
-        defaults.add(new Account(3, "UPI", "UPI", "XXXX", "upi", 0.0));
+        defaults.add(new Account("1", "Cash", "Cash", "0000", "cash", 0.0));
+        defaults.add(new Account("2", "Bank Account", "Bank", "XXXX", "bank", 0.0));
+        defaults.add(new Account("3", "UPI", "UPI", "XXXX", "wallet", 0.0));
         return defaults;
     }
     
     // ==================== CREATE TRANSACTION ====================
     
     public void createTransaction(double amount, String type, String description,
-                                  String merchant, int categoryId, Integer accountId,
+                                  String merchant, String categoryId, String accountId,
                                   Date date, String notes) {
         
         Log.d(TAG, "createTransaction called: amount=" + amount + ", type=" + type + ", desc=" + description);
         
-        // Save to local database first (so it appears immediately)
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 PendingTransaction txn = new PendingTransaction();
@@ -670,7 +648,6 @@ public class MainViewModel extends AndroidViewModel {
                 txn.setCreatedAt(System.currentTimeMillis());
                 txn.setSynced(false);
                 txn.setSource("manual");
-                // Generate unique hash for manual transaction
                 String hash = "MANUAL_" + System.currentTimeMillis() + "_" + amount + "_" + description.hashCode();
                 txn.setSmsHash(hash);
                 
@@ -682,8 +659,6 @@ public class MainViewModel extends AndroidViewModel {
             }
         });
         
-        // Also try to sync to backend
-        // Use categoryName instead of categoryId for backend auto-resolution
         String categoryName = getCategoryNameById(categoryId);
         CreateTransactionRequest request = new CreateTransactionRequest()
                 .setAmount(amount)
@@ -691,7 +666,7 @@ public class MainViewModel extends AndroidViewModel {
                 .setDescription(description)
                 .setMerchant(merchant)
                 .setCategoryName(categoryName)
-                .setAccountId(accountId != null ? String.valueOf(accountId) : null)
+                .setAccountId(accountId)
                 .setTransactionAt(date.getTime())
                 .setSource("manual");
         
@@ -729,11 +704,14 @@ public class MainViewModel extends AndroidViewModel {
     /**
      * Get category name by ID from default categories
      */
-    private String getCategoryNameById(int categoryId) {
+    private String getCategoryNameById(String categoryId) {
+        if (categoryId == null || categoryId.isEmpty()) {
+            return "Other";
+        }
         List<Category> cats = categories.getValue();
         if (cats != null) {
             for (Category cat : cats) {
-                if (cat.getId() == categoryId) {
+                if (categoryId.equals(cat.getId())) {
                     return cat.getName();
                 }
             }

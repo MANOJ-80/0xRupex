@@ -70,17 +70,28 @@ public class SyncWorker extends Worker {
                     source = "sms";
                 }
                 
+                // Build description - use note if available, otherwise construct from merchant
+                String description = pending.getNote();
+                if (description == null || description.isEmpty()) {
+                    if (pending.getMerchant() != null && !pending.getMerchant().isEmpty()) {
+                        description = "Payment to " + pending.getMerchant();
+                    } else {
+                        description = pending.getType().equals("income") ? "Income" : "Expense";
+                    }
+                }
+                
                 // Build request
                 CreateTransactionRequest request = new CreateTransactionRequest()
                         .setType(pending.getType())
                         .setAmount(pending.getAmount())
                         .setMerchant(pending.getMerchant())
-                        .setDescription("Payment to " + pending.getMerchant())
+                        .setDescription(description)
                         .setReferenceId(pending.getReferenceId())
                         .setTransactionAt(pending.getTransactionAt())
                         .setSmsHash(pending.getSmsHash())
                         .setCategoryName(pending.getCategory())
                         .setLast4Digits(pending.getLast4Digits())
+                        .setNotes(pending.getNote())
                         .setSource(source);
 
                 // Try to match account by last 4 digits

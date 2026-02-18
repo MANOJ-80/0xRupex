@@ -10,7 +10,7 @@ router.get('/', categoryController.getCategories);
 router.get('/stats', validators.dateRange, categoryController.getCategoryStats);
 router.get('/:id', validators.objectIdParam, categoryController.getCategory);
 router.post('/', validators.createCategory, categoryController.createCategory);
-router.put('/:id', validators.objectIdParam, categoryController.updateCategory);
+router.put('/:id', validators.objectIdParam, validators.updateCategory, categoryController.updateCategory);
 router.delete('/:id', validators.objectIdParam, categoryController.deleteCategory);
 
 module.exports = router;

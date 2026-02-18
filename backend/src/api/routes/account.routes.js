@@ -9,7 +9,7 @@ router.use(authenticate);
 router.get('/', accountController.getAccounts);
 router.get('/:id', validators.objectIdParam, accountController.getAccount);
 router.post('/', validators.createAccount, accountController.createAccount);
-router.put('/:id', validators.objectIdParam, accountController.updateAccount);
+router.put('/:id', validators.objectIdParam, validators.updateAccount, accountController.updateAccount);
 router.delete('/:id', validators.objectIdParam, accountController.deleteAccount);
 
 module.exports = router;

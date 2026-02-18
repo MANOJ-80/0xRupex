@@ -220,7 +220,8 @@ public class PaymentNotificationListener extends NotificationListenerService {
                 txn.setSynced(false);
                 txn.setSource("notification");  // Mark source as notification
                 // Generate unique hash for UPI notification
-                String hash = "UPI_" + now + "_" + parsed.amount + "_" + parsed.merchant.hashCode();
+                String merchantHash = parsed.merchant != null ? String.valueOf(parsed.merchant.hashCode()) : "unknown";
+                String hash = "UPI_" + now + "_" + parsed.amount + "_" + merchantHash;
                 txn.setSmsHash(hash);
 
                 db.pendingTransactionDao().insert(txn);

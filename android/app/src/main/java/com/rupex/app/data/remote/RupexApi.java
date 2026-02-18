@@ -14,13 +14,13 @@ public interface RupexApi {
     // ============================================
 
     @POST("auth/login")
-    Call<ApiResponse<AuthResponse>> login(@Body LoginRequest request);
+    Call<AuthResponse> login(@Body LoginRequest request);
 
     @POST("auth/register")
-    Call<ApiResponse<AuthResponse>> register(@Body RegisterRequest request);
+    Call<AuthResponse> register(@Body RegisterRequest request);
 
     @POST("auth/refresh")
-    Call<ApiResponse<AuthResponse>> refreshToken(@Body RefreshTokenRequest request);
+    Call<AuthResponse> refreshToken(@Body RefreshTokenRequest request);
 
     @POST("auth/logout")
     Call<ApiResponse<Void>> logout();
@@ -74,10 +74,7 @@ public interface RupexApi {
     // ============================================
 
     @GET("categories")
-    Call<CategoriesResponse> getCategories();
-
-    @GET("categories")
-    Call<CategoriesResponse> getCategoriesByType(@Query("type") String type);
+    Call<CategoriesResponse> getCategories(@Query("type") String type);
 
     @GET("categories/stats")
     Call<ApiResponse<CategoryStatsResponse>> getCategoryStats(
